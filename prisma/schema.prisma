@@ -1,0 +1,340 @@
+// Event Atlas — initial Prisma schema.
+// See SYSTEM_ARCHITECTURE.md § Database Schema and PRODUCT_REQUIREMENTS.md for
+// the semantics that constrain shape (5-save free-tier limit, Going->reminder
+// relationship, cross-provider dedupe, attendance history retention).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Category {
+  MUSIC
+  SPORTS
+  ARTS_THEATER
+  FOOD_DRINK
+  NETWORKING
+  HEALTH_WELLNESS
+  OUTDOOR_ADVENTURE
+  FAMILY_FRIENDLY
+  COMMUNITY_CULTURE
+  NIGHTLIFE
+  EDUCATION
+  OTHER
+}
+
+enum Provider {
+  TICKETMASTER
+  EVENTBRITE
+  MEETUP
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum SubscriptionStatus {
+  FREE
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum LocationPermission {
+  GRANTED
+  DENIED
+  UNSET
+}
+
+enum ExperienceType {
+  INDOOR
+  OUTDOOR
+  BOTH
+}
+
+// ---------- Auth ----------
+
+model User {
+  id                 String             @id @default(cuid())
+  name               String?
+  email              String             @unique
+  // Nullable: OAuth-only users never set a password.
+  passwordHash       String?
+  // Auth.js convention: image is populated by OAuth providers (e.g. Google avatar).
+  image              String?
+  // Auth.js convention: DateTime? (null = unverified).
+  emailVerified      DateTime?
+  zipCode            String?
+  // Float lat/lng: sufficient precision (~1cm at equator) for radius filtering;
+  // Prisma has no native PostGIS support and we do bounding-box + Haversine in code.
+  latitude           Float?
+  longitude          Float?
+  locationPermission LocationPermission @default(UNSET)
+  // Bumped on password reset; JWT callback compares against DB to invalidate
+  // outstanding tokens (poor-man's revocation for JWT session strategy).
+  sessionVersion     Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  accounts          Account[]
+  preferences       UserPreferences?
+  subscription      Subscription?
+  savedEvents       SavedEvent[]
+  goingEvents       GoingEvent[]
+  reminders         EventReminder[]
+  sentFriendRequests     FriendRequest[] @relation("SentFriendRequests")
+  receivedFriendRequests FriendRequest[] @relation("ReceivedFriendRequests")
+  friendshipsAsA         Friendship[]    @relation("FriendshipUserA")
+  friendshipsAsB         Friendship[]    @relation("FriendshipUserB")
+  passwordResetTokens    PasswordResetToken[]
+}
+
+// Auth.js v5 required table (per @auth/prisma-adapter). Field names and types
+// are contract with the adapter — do not rename.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// ---------- Preferences / Subscription ----------
+
+model UserPreferences {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // JSON array of Category enum string values that the user has disabled.
+  // JSON chosen (last-resort per agent rules) because the payload is bounded
+  // (max 12 values) and only ever read/written whole with the preferences row.
+  disabledCategories Json           @default("[]")
+  maxDistanceMiles   Int            @default(25)
+  dateRangeDays      Int            @default(30)
+  priceMin           Int?
+  priceMax           Int?
+  experienceType     ExperienceType @default(BOTH)
+  familyFriendly     Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  status               SubscriptionStatus @default(FREE)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// ---------- Events ----------
+
+model Event {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?  @db.Text
+  imageUrl      String?
+  startTime     DateTime
+  endTime       DateTime?
+  venue         String?
+  latitude      Float
+  longitude     Float
+  price         Float?
+  isFree        Boolean  @default(false)
+  category      Category
+  performerName String?
+  // Soft-delete flag set to false during cleanup for expired events; feed
+  // queries filter on this. No separate deletedAt — isActive is the flag.
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sources     EventSource[]
+  savedBy     SavedEvent[]
+  goingUsers  GoingEvent[]
+  reminders   EventReminder[]
+
+  // Feed query paths:
+  //   - active-and-upcoming ordered by startTime
+  //   - category filter combined with active/startTime
+  //   - bounding-box prefilter for distance (see SYSTEM_ARCHITECTURE.md § Location)
+  // Cleanup cron path:
+  //   - expired-by-endTime soft-delete (see SYSTEM_ARCHITECTURE.md § Cleanup)
+  @@index([isActive, startTime])
+  @@index([category, isActive, startTime])
+  @@index([latitude, longitude])
+  @@index([startTime])
+  @@index([endTime])
+}
+
+model EventSource {
+  id         String   @id @default(cuid())
+  eventId    String
+  provider   Provider
+  externalId String
+  ticketUrl  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Phase-1 dedupe key: (provider, externalId) is the natural identifier from
+  // the source. Cross-provider dedupe (Phase 2) may attach multiple sources to
+  // one canonical Event.
+  @@unique([provider, externalId])
+  @@index([eventId])
+}
+
+// ---------- User <-> Event joins ----------
+
+model SavedEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // The @@unique([userId, eventId]) composite serves userId-prefix queries;
+  // @@index([eventId]) covers reverse lookups (e.g., saved counts per event).
+  @@unique([userId, eventId])
+  @@index([eventId])
+}
+
+// GoingEvent does NOT cascade on Event delete — attendance history is derived
+// from past Going rows (see PRODUCT_REQUIREMENTS.md § Analytics and
+// SYSTEM_ARCHITECTURE.md § Event Sync Pipeline > Cleanup). The cleanup job only
+// hard-deletes Events with zero GoingEvent references. Cascade on User delete
+// only.
+model GoingEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+}
+
+model EventReminder {
+  id        String         @id @default(cuid())
+  userId    String
+  eventId   String
+  sendAt    DateTime
+  status    ReminderStatus @default(PENDING)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // NoAction on Event delete: reminders are for future Going events, and Event
+  // hard-delete is blocked upstream by the GoingEvent Restrict constraint, so
+  // this is a defense-in-depth guard.
+  event Event @relation(fields: [eventId], references: [id], onDelete: NoAction)
+
+  // Reminder cron query path: pending reminders whose sendAt has passed.
+  // Cancellation path (On GoingEvent delete → status = CANCELLED): lookup by
+  // (userId, eventId).
+  @@index([status, sendAt])
+  @@index([userId, eventId])
+  @@index([eventId])
+}
+
+// ---------- Social ----------
+
+model FriendRequest {
+  id         String              @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  status     FriendRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  fromUser User @relation("SentFriendRequests", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("ReceivedFriendRequests", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  // The @@unique([fromUserId, toUserId]) composite serves fromUserId-prefix
+  // queries; @@index([toUserId, status]) covers the pending-inbox lookup.
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId, status])
+}
+
+// ---------- Auth tokens ----------
+
+// tokenHash stores sha256(rawToken). Raw tokens are never persisted — a DB read
+// must not reveal live reset links. usedAt marks single-use consumption;
+// expiresAt is a hard TTL. @@index([expiresAt]) supports cleanup queries for
+// stale unused tokens.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Invariant: userAId < userBId (lexicographic on the cuid string). Enforced in
+/// application code when a friend request is accepted — the pair is stored once
+/// with the smaller id in userAId. This eliminates the (A,B) vs (B,A) duplicate
+/// class without needing a CHECK constraint. See FriendRequest for the request
+/// side; Friendship is the accepted mutual state.
+model Friendship {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("FriendshipUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("FriendshipUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  // The @@unique([userAId, userBId]) composite serves userAId-prefix queries;
+  // @@index([userBId]) covers reverse lookups since a composite's rightmost
+  // column is not usable as a standalone prefix.
+  @@unique([userAId, userBId])
+  @@index([userBId])
+}

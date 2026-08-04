@@ -1,0 +1,123 @@
+{
+  "_embedded": {
+    "events": [
+      {
+        "id": "tm-001",
+        "name": "  Taylor Swift: The Eras Tour  ",
+        "url": "https://www.ticketmaster.com/event/tm-001",
+        "images": [
+          { "ratio": "16_9", "url": "https://example.com/img/small.jpg", "width": 205, "height": 115, "fallback": false },
+          { "ratio": "16_9", "url": "https://example.com/img/large.jpg", "width": 1136, "height": 639, "fallback": false }
+        ],
+        "dates": {
+          "start": {
+            "dateTime": "2026-09-15T19:30:00Z",
+            "dateTBD": false,
+            "dateTBC": false,
+            "noSpecificTime": false
+          },
+          "end": {
+            "dateTime": "2026-09-15T23:00:00Z"
+          }
+        },
+        "classifications": [
+          {
+            "primary": true,
+            "segment": { "id": "KZFzniwnSyZfZ7v7nJ", "name": "Music" },
+            "genre": { "id": "KnvZfZ7vAeA", "name": "Pop" }
+          }
+        ],
+        "priceRanges": [
+          { "type": "standard", "currency": "USD", "min": 89.5, "max": 499.99 }
+        ],
+        "_embedded": {
+          "attractions": [
+            { "name": "Taylor Swift" }
+          ],
+          "venues": [
+            {
+              "name": "MetLife Stadium",
+              "location": { "latitude": "40.8135", "longitude": "-74.0745" },
+              "address": { "line1": "1 MetLife Stadium Dr" },
+              "city": { "name": "East Rutherford" },
+              "state": { "stateCode": "NJ" }
+            }
+          ]
+        }
+      },
+      {
+        "id": "tm-002",
+        "name": "New York Knicks vs Boston Celtics",
+        "url": "https://www.ticketmaster.com/event/tm-002",
+        "images": [
+          { "ratio": "16_9", "url": "https://example.com/nba/knicks.jpg", "width": 1136, "height": 639, "fallback": false }
+        ],
+        "dates": {
+          "start": {
+            "dateTime": "2026-10-01T20:00:00Z",
+            "dateTBD": false,
+            "dateTBC": false,
+            "noSpecificTime": false
+          }
+        },
+        "classifications": [
+          {
+            "primary": true,
+            "segment": { "id": "KZFzniwnSyZfZ7v7nE", "name": "Sports" },
+            "genre": { "id": "KnvZfZ7vAde", "name": "Basketball" }
+          }
+        ],
+        "priceRanges": [
+          { "type": "standard", "currency": "USD", "min": 50.0, "max": 500.0 }
+        ],
+        "_embedded": {
+          "attractions": [
+            { "name": "New York Knicks" }
+          ],
+          "venues": [
+            {
+              "name": "Madison Square Garden",
+              "location": { "latitude": "40.7505", "longitude": "-73.9934" },
+              "address": { "line1": "4 Pennsylvania Plaza" },
+              "city": { "name": "New York" },
+              "state": { "stateCode": "NY" }
+            }
+          ]
+        }
+      },
+      {
+        "id": "tm-003",
+        "name": "No Venue Event",
+        "url": "https://www.ticketmaster.com/event/tm-003",
+        "images": [],
+        "dates": {
+          "start": {
+            "dateTime": "2026-10-05T20:00:00Z",
+            "dateTBD": false,
+            "dateTBC": false,
+            "noSpecificTime": false
+          }
+        },
+        "classifications": [
+          {
+            "primary": true,
+            "segment": { "id": "KZFzniwnSyZfZ7v7nE", "name": "Sports" }
+          }
+        ],
+        "_embedded": {
+          "venues": [
+            {
+              "name": "TBD Venue"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "page": {
+    "size": 20,
+    "totalElements": 3,
+    "totalPages": 1,
+    "number": 0
+  }
+}

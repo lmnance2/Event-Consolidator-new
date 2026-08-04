@@ -1,0 +1,57 @@
+[
+  {
+    "id": "eb-001",
+    "name": "NYC Tech Networking Night",
+    "description": "Connect with engineers and founders in the NYC tech scene.",
+    "url": "https://www.eventbrite.com/e/nyc-tech-networking-night-tickets-eb-001",
+    "start_date": "2026-09-20T18:00:00Z",
+    "end_date": "2026-09-20T21:00:00Z",
+    "is_free": false,
+    "category": "Business & Professional",
+    "image": "https://img.evbuc.com/tech-night-original.jpg",
+    "venue": {
+      "name": "Werk NYC",
+      "lat": 40.7282,
+      "lng": -73.9942,
+      "address": "123 Broadway, New York, NY 10006"
+    },
+    "ticket_info": {
+      "min_price": 25.0,
+      "is_free": false
+    }
+  },
+  {
+    "id": "eb-002",
+    "name": "Community Yoga in the Park",
+    "description": "Free outdoor yoga session for all skill levels.",
+    "url": "https://www.eventbrite.com/e/community-yoga-tickets-eb-002",
+    "start_date": "2026-09-25T09:00:00Z",
+    "end_date": "2026-09-25T10:30:00Z",
+    "is_free": true,
+    "category": "Health & Wellness",
+    "image": "https://img.evbuc.com/yoga-original.jpg",
+    "venue": {
+      "name": "Central Park Great Lawn",
+      "lat": 40.7829,
+      "lng": -73.9654,
+      "address": "Central Park, New York, NY 10024"
+    },
+    "ticket_info": {
+      "min_price": null,
+      "is_free": true
+    }
+  },
+  {
+    "id": "eb-003",
+    "name": "No Location Event",
+    "description": "This event has no venue coordinates.",
+    "url": "https://www.eventbrite.com/e/no-location-tickets-eb-003",
+    "start_date": "2026-10-01T19:00:00Z",
+    "end_date": "2026-10-01T22:00:00Z",
+    "is_free": false,
+    "category": "Performing & Visual Arts",
+    "image": null,
+    "venue": null,
+    "ticket_info": null
+  }
+]

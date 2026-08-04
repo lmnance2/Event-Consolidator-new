@@ -1,0 +1,84 @@
+[
+  {
+    "id": "mu-001",
+    "name": "  Chicago JS Meetup: React Patterns  ",
+    "description": "Monthly gathering of Chicago JavaScript developers.",
+    "link": "https://www.meetup.com/chicago-js/events/mu-001",
+    "dateTime": "2026-09-18T18:30:00",
+    "endTime": "2026-09-18T21:00:00",
+    "timezone": "America/Chicago",
+    "isFree": true,
+    "topics": ["Tech", "JavaScript"],
+    "images": [
+      { "url": "https://secure.meetupstatic.com/photos/event/mu-001.jpg" }
+    ],
+    "venue": {
+      "name": "1871 Chicago",
+      "lat": 41.8867,
+      "lon": -87.6347,
+      "address": "222 W Merchandise Mart Plaza, Chicago, IL 60654"
+    },
+    "group": {
+      "name": "Chicago JS"
+    }
+  },
+  {
+    "id": "mu-002",
+    "name": "SF Founders & Investors Dinner",
+    "description": "Intimate dinner connecting SF startup founders and angel investors.",
+    "link": "https://www.meetup.com/sf-founders/events/mu-002",
+    "dateTime": "2026-10-02T19:00:00",
+    "endTime": "2026-10-02T22:00:00",
+    "timezone": "America/Los_Angeles",
+    "isFree": false,
+    "fee": { "amount": 30, "currency": "USD" },
+    "topics": ["Networking", "Business"],
+    "images": [],
+    "venue": {
+      "name": "The Battery SF",
+      "lat": 37.7966,
+      "lon": -122.4017,
+      "address": "717 Battery St, San Francisco, CA 94111"
+    },
+    "group": {
+      "name": "SF Founders"
+    }
+  },
+  {
+    "id": "mu-003",
+    "name": "Outdoor Hiking Adventure: Griffith Park",
+    "description": "Join us for a morning hike in Griffith Park.",
+    "link": "https://www.meetup.com/la-outdoors/events/mu-003",
+    "dateTime": "2026-09-28T08:00:00",
+    "timezone": "America/Los_Angeles",
+    "isFree": true,
+    "topics": ["Outdoors & Adventure", "Fitness"],
+    "images": [
+      { "url": "https://secure.meetupstatic.com/photos/event/mu-003.jpg" }
+    ],
+    "venue": {
+      "name": "Griffith Park Entrance",
+      "lat": 34.1365,
+      "lon": -118.2941,
+      "address": "4730 Crystal Springs Dr, Los Angeles, CA 90027"
+    },
+    "group": {
+      "name": "LA Outdoors"
+    }
+  },
+  {
+    "id": "mu-004",
+    "name": "No Venue Event",
+    "description": "Online event with no physical location.",
+    "link": "https://www.meetup.com/online/events/mu-004",
+    "dateTime": "2026-10-10T18:00:00",
+    "timezone": "America/New_York",
+    "isFree": true,
+    "topics": ["Tech"],
+    "images": [],
+    "venue": null,
+    "group": {
+      "name": "Online Group"
+    }
+  }
+]
