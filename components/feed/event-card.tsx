@@ -1,7 +1,13 @@
+"use client";
+
+import { useCallback, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Category } from "@prisma/client";
+import { CalendarCheck, Heart, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDayTime, priceLabel, distanceLabel } from "@/lib/events/format";
+import { useEventState } from "@/components/providers/event-state-provider";
 import { CategoryPlaceholder } from "./category-placeholder";
 
 const CATEGORY_DISPLAY: Record<Category, string> = {
@@ -36,7 +42,133 @@ interface EventCardProps {
   onOpen: (id: string) => void;
 }
 
+interface SaveToggleProps {
+  title: string;
+  pressed: boolean;
+  loading: boolean;
+  onToggle: () => Promise<{ success: boolean }>;
+}
+
+function SaveToggle({ title, pressed, loading, onToggle }: SaveToggleProps) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const wasSaved = pressed;
+      onToggle().then(({ success }) => {
+        if (success && !wasSaved) {
+          btnRef.current?.setAttribute("data-just-saved", "true");
+          setTimeout(() => {
+            btnRef.current?.removeAttribute("data-just-saved");
+          }, 200);
+        }
+      });
+    },
+    [pressed, onToggle]
+  );
+
+  return (
+    <button
+      ref={btnRef}
+      type="button"
+      aria-pressed={pressed}
+      aria-label={pressed ? `Unsave ${title}` : `Save ${title}`}
+      onClick={handleClick}
+      className={cn(
+        "h-9 w-9 grid place-items-center rounded-full",
+        "shadow-sm border",
+        "transition ease-out [transition-duration:160ms]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+        "active:scale-90",
+        loading && "pointer-events-none opacity-70",
+        pressed
+          ? "bg-brand/8 border-brand/40 text-brand"
+          : "bg-background border-border/60 text-foreground/70 hover:text-foreground hover:border-[var(--border-strong)]"
+      )}
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Heart
+          className={cn(
+            "h-4 w-4",
+            pressed && "fill-brand"
+          )}
+        />
+      )}
+    </button>
+  );
+}
+
+interface GoingToggleProps {
+  title: string;
+  pressed: boolean;
+  loading: boolean;
+  onToggle: (e: React.MouseEvent) => void;
+}
+
+function GoingToggle({ title, pressed, loading, onToggle }: GoingToggleProps) {
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggle(e);
+    },
+    [onToggle]
+  );
+
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      aria-label={pressed ? `Remove going for ${title}` : `Mark going for ${title}`}
+      onClick={handleClick}
+      className={cn(
+        "h-9 w-9 grid place-items-center rounded-full",
+        "shadow-sm border",
+        "transition ease-out [transition-duration:160ms]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+        "active:scale-90",
+        loading && "pointer-events-none opacity-70",
+        pressed
+          ? "bg-foreground/5 border-foreground/25 text-foreground"
+          : "bg-background border-border/60 text-foreground/70 hover:text-foreground hover:border-[var(--border-strong)]"
+      )}
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <CalendarCheck className="h-4 w-4" />
+      )}
+    </button>
+  );
+}
+
 export function EventCard({ event, onOpen }: EventCardProps) {
+  const { savedIds, goingIds, isLoading, toggleSave, toggleGoing, isSavePending, isGoingPending } = useEventState();
+
+  const isSaved = savedIds.has(event.id);
+  const isGoing = goingIds.has(event.id);
+  const savePending = isSavePending(event.id);
+  const goingPending = isGoingPending(event.id);
+
+  const handleSave = useCallback(
+    (): Promise<{ success: boolean }> => {
+      return toggleSave(event.id);
+    },
+    [toggleSave, event.id]
+  );
+
+  const handleGoing = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      toggleGoing(event.id);
+    },
+    [toggleGoing, event.id]
+  );
+
   const categoryLabel = CATEGORY_DISPLAY[event.category] ?? event.category;
   const meta = [
     formatDayTime(event.startTime),
@@ -84,10 +216,30 @@ export function EventCard({ event, onOpen }: EventCardProps) {
         </div>
       </div>
 
-      <button
+      <div className="absolute top-2 right-2 z-20 flex gap-1.5">
+        <SaveToggle
+          title={event.title}
+          pressed={!isLoading && isSaved}
+          loading={isLoading || savePending}
+          onToggle={handleSave}
+        />
+        <GoingToggle
+          title={event.title}
+          pressed={!isLoading && isGoing}
+          loading={isLoading || goingPending}
+          onToggle={handleGoing}
+        />
+      </div>
+
+      <Link
+        href={`/feed?event=${event.id}`}
+        scroll={false}
         className="absolute inset-0 z-10"
         aria-label={`View details for ${event.title}`}
-        onClick={() => onOpen(event.id)}
+        onClick={(e) => {
+          e.preventDefault();
+          onOpen(event.id);
+        }}
       />
     </article>
   );

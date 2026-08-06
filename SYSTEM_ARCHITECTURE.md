@@ -181,6 +181,8 @@ Cron:
   → send via Resend → set status = SENT (or FAILED)
 ```
 
+**FAILED-as-sentinel design:** The cron atomically transitions claimed rows from `PENDING → FAILED` before sending, using `FAILED` as an in-flight sentinel (a `SENDING` state would require a schema change). On success the row is corrected to `SENT`; on Resend failure it stays `FAILED`, which is also the correct terminal state. The trade-off: a handler crash between claim and send permanently marks those reminders as `FAILED` with no retry — the reminder is lost for that run. This is acceptable given reminders are best-effort and Vercel Cron serializes invocations. A follow-up iteration could introduce a `SENDING` enum state to distinguish in-flight from terminal failure, enabling a retry window.
+
 ---
 
 ## Database Schema (Key Models)

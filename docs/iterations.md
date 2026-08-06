@@ -267,25 +267,53 @@ Living plan for the greenfield build. Each iteration is a self-contained slice t
 
 ---
 
-## Iteration 8 — Save + Going + Calendar export + reminder cron
+## Iteration 8 — Save + Going + Calendar export + reminder cron ✅
 
-**Status:** Not started
+**Status:** Complete (2026-08-06)
 
-**Owner:** `backend` + `sync` + `frontend` agents
+**Owner:** `backend` + `sync` + `frontend` agents (design plan by orchestrator via `ui-ux-pro-max` + `impeccable`)
 
-**Scope:**
-- `POST /api/events/[id]/save`, `DELETE /api/events/[id]/save`
-- Free-tier 5-save enforcement server-side (`prisma.savedEvent.count`)
-- `POST /api/events/[id]/going`, `DELETE /api/events/[id]/going`
-- On Going insert → create `EventReminder { status: PENDING, sendAt: startTime - 24h }` when the delta is > 0
-- On Going delete → set reminder `status = CANCELLED`
-- Calendar exports: `.ics` download endpoint, Google Calendar deep-link, Apple Calendar deep-link
-- Reminder cron `GET /api/notifications/reminders/process` — Resend send, protected by `CRON_SECRET`
-- Vitest: 5-save enforcement, reminder scheduling math
+**Scope delivered:**
+- **Design plan at `docs/plans/save-going.md`** — locked EventCard toggle placement/state, EventDetailsPanel footer, SaveLimitDialog copy, reminder email register (brand register, table-based, no em dashes)
+- **`POST/DELETE /api/events/[id]/save`** — interactive `$transaction` with `{ isolationLevel: "Serializable" }`, count-inside-tx for free users, P2034 conflict remaps to 409 SAVE_LIMIT_REACHED, P2002 same-event idempotency, 404 for missing/inactive events, subscription lookup pre-tx to shrink serialization footprint
+- **`POST/DELETE /api/events/[id]/going`** — atomic tx wraps `goingEvent.create` + reminder upsert (updateMany-then-create), reminder created only when `startTime - 24h > now`, DELETE transitions PENDING reminders to CANCELLED
+- **`GET /api/events/[id]/ics`** — RFC 5545-compliant ICS builder (`lib/calendar/ics.ts`) with 75-byte line folding, CRLF, text escaping, `Content-Disposition: attachment`
+- **`lib/calendar/deep-links.ts`** — `googleCalendarUrl` (URL template) + `appleCalendarUrl` (client-only, derives host from `window.location.host` at call time)
+- **`GET /api/users/me/event-state`** — returns `{ saved: string[], going: string[], isPro: boolean }`, `Cache-Control: private, no-store`
+- **`GET /api/notifications/reminders/process`** — cron: `crypto.timingSafeEqual` on CRON_SECRET (also applied to `/api/sync/run`), NEXTAUTH_URL pre-flight guard (500 before any DB read if unset), claim-by-FAILED serializable strategy, batched `event.sources` include (no N+1), Resend send, structured `reminders.*` logs
+- **`lib/events/reminder.ts`** — `computeSendAt(startTime)` returns `startTime - 24h` when > now, else null
+- **`lib/events/primary-source.ts`** — `getPrimaryTicketUrl(eventId)` canonical `orderBy: { createdAt: "asc" }` used by ICS route
+- **`lib/email/templates/reminder.tsx`** — brand-register email; subject "Coming up: {title}" (not "Tomorrow:" since 24h fires cross-date-boundary for evening events); locked copy per plan §4
+- **`lib/subscription/constants.ts`** — `FREE_SAVE_LIMIT = 5` centralized
+- **`components/providers/event-state-provider.tsx`** — client context; optimistic Save/Going with server reconciliation, per-id in-flight state (`isSavePending`/`isGoingPending`), pre-check skip when `isPro`, `router.push("/login")` on 401, `toggleSave` returns `Promise<{ success: boolean }>` so pulse only fires on 2xx
+- **`components/feed/event-card.tsx`** — overlay converted from `<button>` to `<Link>` (nested-interactive HTML fix); Save/Going toggles at z-20, link at z-10; Save-success pulse via `data-just-saved` gated on server success; loading/uninitialized states
+- **`components/feed/event-details-panel.tsx`** — new footer: row 1 `PanelToggle` (outline↔brand for pressed) × 2 + `AddToCalendarMenu`; row 2 full-width Get Tickets
+- **`components/feed/save-limit-dialog.tsx`** — mounted at `app/(main)/layout.tsx`, locked copy per plan §3
+- **`components/ui/dropdown-menu.tsx`** — new wrapper around `@base-ui/react/menu` following the project's `data-slot` pattern (replaces raw Menu usage in panel)
+- **`app/globals.css`** — `@keyframes save-pulse` + `[data-just-saved]` selector with `prefers-reduced-motion` respect
+- **`SYSTEM_ARCHITECTURE.md` § Notifications** — documented FAILED-as-sentinel claim strategy and its crash-leak trade-off; follow-up `SENDING` enum flagged
 
-**Env vars needed:** none new
+**Vitest coverage:** 482 tests / 35 files (was 351/25 after iter 7). New: save route (10 including TOCTOU inside-tx re-read, P2034 remap, `isolationLevel: Serializable` assertion, Pro-user allow-at-5), going route (7 including 404 branches, tx wraps create + reminder, P2002 idempotency inside tx), ICS route + builder (~15), event-state route (6 including `isPro` matrix across FREE/ACTIVE/PAST_DUE/CANCELED/null), reminder scheduling math (5), calendar deep-links (client-side host derivation + SSR guard), reminder cron (24 including CRON_SECRET timingSafeEqual matrix, NEXTAUTH_URL validation, batched sources with no per-reminder findFirst), primary-source helper (3)
 
-**Review:** `code-reviewer` — cron + user data + business rule (5-save limit)
+**Env vars needed:** none new (`CRON_SECRET`, `NEXTAUTH_URL`, `RESEND_API_KEY` all set in prior iterations)
+
+**Quality gate:** typecheck ✅ · lint ✅ · test ✅ (482/482 in 35 files) · build ✅ (26 routes)
+
+**Review:** `code-reviewer` × 2 passes.
+- Round 1: 3 Critical (TOCTOU save-limit race with create-outside-tx; Apple Calendar URL broken client-side via `process.env.NEXTAUTH_URL` in client bundle; Pro users blocked by client `savedIds.size >= 5` pre-check) + 5 High (`goingEvent.create` outside reminder tx; NEXTAUTH_URL not validated in cron before sending broken links; FAILED-as-sentinel crash-leak — doc-only fix; save-success pulse played on failed saves; hardcoded 600ms UI-lock timer decoupled from network) + 6 actionable Medium + 6 nitpicks. Fixes fanned out to backend + frontend + sync in parallel.
+- Round 2 (targeted re-review): all round-1 Critical and High confirmed closed at cited `file:line`. One residual: default Postgres READ COMMITTED left a narrower TOCTOU window on concurrent DIFFERENT-event saves at count=4. Orchestrator landed the `{ isolationLevel: "Serializable" }` + P2034 → 409 remap inline as a trivial-tier follow-up (one line + a handler; identical shape to the pattern already in the reminder cron).
+
+**Deviations from plan:**
+1. **`AddToCalendarMenu` skipped `pnpm dlx shadcn@latest add dropdown-menu`.** The plan says to install the shadcn Radix dropdown-menu, but this repo is uniformly `@base-ui/react`. The fix round created `components/ui/dropdown-menu.tsx` as a base-ui wrapper following the project's Popover pattern — semantically identical, keeps the codebase primitive stack consistent.
+2. **`/api/users/me/event-state` response shape.** Plan spec'd `{ savedIds, goingIds, savedCount }`; actual is `{ saved, going, isPro }`. Client derives `savedCount` from `saved.length`. The `isPro` addition (not in the plan) was required to unblock Pro users from the client-side pre-check.
+3. **EventCard `<Link>` overlay `href` is aspirational.** `href="/feed?event={id}"` with `onClick={preventDefault + onOpen}` — the URL never changes. Deep-linkable panels were out of scope; the href reserves the shape for a follow-up.
+
+**Accepted trade-offs:**
+- **FAILED-as-sentinel crash leak.** The reminder cron's claim-by-FAILED strategy means any handler crash between claim and send permanently marks reminders FAILED. Documented in `SYSTEM_ARCHITECTURE.md`. Follow-up: add a `SENDING` enum state to distinguish in-flight from terminal failure (schema change deferred).
+- **timeOfDay UTC filter** from iter 7 still uses UTC hours (H1 from iter 7 review). This iteration did not touch it; deferred alongside a future `Event.startHourLocal` schema field.
+- **No Playwright smoke suite yet.** Reviewer's round-1 golden-path pass covered iter 8; the "sign in → save 5 → 6th → dialog fires" and "Apple Calendar link opens webcal URL" flows would be strong first Playwright cases whenever the suite lands.
+- **ICS export not scoped to Saved/Going.** Any authenticated user can `GET /api/events/[id]/ics` for any event — reviewer flagged as optional product decision, not a bug. Kept open.
+- **`event-state` client 401 handler pushes to `/login`.** Safe today because provider is mounted only under `(main)`; if provider were moved to the root layout, a loop is theoretically possible. Reviewer flagged Medium; deferred to a top-of-file comment on the provider file if this ever moves.
 
 ---
 

@@ -1,5 +1,7 @@
 import { auth } from "@/lib/auth";
 import { Header } from "@/components/main/header";
+import { EventStateProvider } from "@/components/providers/event-state-provider";
+import { SaveLimitDialog } from "@/components/feed/save-limit-dialog";
 
 export default async function MainLayout({
   children,
@@ -15,7 +17,10 @@ export default async function MainLayout({
         userEmail={session?.user?.email ?? null}
         userImage={session?.user?.image ?? null}
       />
-      <main className="flex-1">{children}</main>
+      <EventStateProvider>
+        <main className="flex-1">{children}</main>
+        <SaveLimitDialog />
+      </EventStateProvider>
     </div>
   );
 }
