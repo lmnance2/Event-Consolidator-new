@@ -7,12 +7,55 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 import { prisma } from "@/lib/db/client";
-import { getPrimaryTicketUrl } from "@/lib/events/primary-source";
+import { getPrimaryTicketUrl, pickPrimarySource } from "@/lib/events/primary-source";
 
 const mockFindFirst = vi.mocked(prisma.eventSource.findFirst);
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+describe("pickPrimarySource", () => {
+  it("returns null for empty sources array", () => {
+    expect(pickPrimarySource([])).toBeNull();
+  });
+
+  it("picks TICKETMASTER over EVENTBRITE (TM+EB -> TM)", () => {
+    const sources = [
+      { provider: "EVENTBRITE" as const, ticketUrl: "https://eb.com/1" },
+      { provider: "TICKETMASTER" as const, ticketUrl: "https://tm.com/1" },
+    ];
+    const result = pickPrimarySource(sources);
+    expect(result?.provider).toBe("TICKETMASTER");
+    expect(result?.ticketUrl).toBe("https://tm.com/1");
+  });
+
+  it("picks EVENTBRITE over MEETUP (EB+MU -> EB)", () => {
+    const sources = [
+      { provider: "MEETUP" as const, ticketUrl: "https://meetup.com/1" },
+      { provider: "EVENTBRITE" as const, ticketUrl: "https://eb.com/1" },
+    ];
+    const result = pickPrimarySource(sources);
+    expect(result?.provider).toBe("EVENTBRITE");
+  });
+
+  it("returns MEETUP when it is the only source", () => {
+    const sources = [
+      { provider: "MEETUP" as const, ticketUrl: "https://meetup.com/1" },
+    ];
+    const result = pickPrimarySource(sources);
+    expect(result?.provider).toBe("MEETUP");
+  });
+
+  it("does not mutate the input array", () => {
+    const sources = [
+      { provider: "MEETUP" as const, ticketUrl: "https://meetup.com/1" },
+      { provider: "TICKETMASTER" as const, ticketUrl: "https://tm.com/1" },
+    ];
+    const original = [...sources];
+    pickPrimarySource(sources);
+    expect(sources).toEqual(original);
+  });
 });
 
 describe("getPrimaryTicketUrl", () => {

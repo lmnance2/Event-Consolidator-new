@@ -1,17 +1,20 @@
 [
   {
-    "id": "mu-001",
-    "name": "  Chicago JS Meetup: React Patterns  ",
-    "description": "Monthly gathering of Chicago JavaScript developers.",
-    "link": "https://www.meetup.com/chicago-js/events/mu-001",
-    "dateTime": "2026-09-18T18:30:00",
-    "endTime": "2026-09-18T21:00:00",
+    "eventId": "mu-001",
+    "eventName": "  Chicago JS Meetup: React Patterns  ",
+    "eventDescription": "Monthly gathering of Chicago JavaScript developers.",
+    "eventUrl": "https://www.meetup.com/chicago-js/events/mu-001",
+    "startDateTime": "2026-09-18T18:30:00",
+    "endDateTime": "2026-09-18T21:00:00",
     "timezone": "America/Chicago",
-    "isFree": true,
-    "topics": ["Tech", "JavaScript"],
-    "images": [
-      { "url": "https://secure.meetupstatic.com/photos/event/mu-001.jpg" }
+    "isPaidEvent": false,
+    "isOnline": false,
+    "eventType": "PHYSICAL",
+    "topics": [
+      { "id": "t1", "name": "Tech", "urlkey": "tech" },
+      { "id": "t2", "name": "JavaScript", "urlkey": "javascript" }
     ],
+    "featuredPhotoUrl": "https://secure.meetupstatic.com/photos/event/mu-001.jpg",
     "venue": {
       "name": "1871 Chicago",
       "lat": 41.8867,
@@ -23,17 +26,23 @@
     }
   },
   {
-    "id": "mu-002",
-    "name": "SF Founders & Investors Dinner",
-    "description": "Intimate dinner connecting SF startup founders and angel investors.",
-    "link": "https://www.meetup.com/sf-founders/events/mu-002",
-    "dateTime": "2026-10-02T19:00:00",
-    "endTime": "2026-10-02T22:00:00",
+    "eventId": "mu-002",
+    "eventName": "SF Founders & Investors Dinner",
+    "eventDescription": "Intimate dinner connecting SF startup founders and angel investors.",
+    "eventUrl": "https://www.meetup.com/sf-founders/events/mu-002",
+    "startDateTime": "2026-10-02T19:00:00",
+    "endDateTime": "2026-10-02T22:00:00",
     "timezone": "America/Los_Angeles",
-    "isFree": false,
-    "fee": { "amount": 30, "currency": "USD" },
-    "topics": ["Networking", "Business"],
-    "images": [],
+    "isPaidEvent": true,
+    "isOnline": false,
+    "eventType": "PHYSICAL",
+    "feeAmount": 30,
+    "feeCurrency": "USD",
+    "topics": [
+      { "id": "t3", "name": "Networking", "urlkey": "networking" },
+      { "id": "t4", "name": "Business", "urlkey": "business" }
+    ],
+    "featuredPhotoUrl": null,
     "venue": {
       "name": "The Battery SF",
       "lat": 37.7966,
@@ -45,17 +54,20 @@
     }
   },
   {
-    "id": "mu-003",
-    "name": "Outdoor Hiking Adventure: Griffith Park",
-    "description": "Join us for a morning hike in Griffith Park.",
-    "link": "https://www.meetup.com/la-outdoors/events/mu-003",
-    "dateTime": "2026-09-28T08:00:00",
+    "eventId": "mu-003",
+    "eventName": "Outdoor Hiking Adventure: Griffith Park",
+    "eventDescription": "Join us for a morning hike in Griffith Park.",
+    "eventUrl": "https://www.meetup.com/la-outdoors/events/mu-003",
+    "startDateTime": "2026-09-28T08:00:00",
     "timezone": "America/Los_Angeles",
-    "isFree": true,
-    "topics": ["Outdoors & Adventure", "Fitness"],
-    "images": [
-      { "url": "https://secure.meetupstatic.com/photos/event/mu-003.jpg" }
+    "isPaidEvent": false,
+    "isOnline": false,
+    "eventType": "PHYSICAL",
+    "topics": [
+      { "id": "t5", "name": "Outdoors & Adventure", "urlkey": "outdoors" },
+      { "id": "t6", "name": "Fitness", "urlkey": "fitness" }
     ],
+    "featuredPhotoUrl": "https://secure.meetupstatic.com/photos/event/mu-003.jpg",
     "venue": {
       "name": "Griffith Park Entrance",
       "lat": 34.1365,
@@ -67,15 +79,19 @@
     }
   },
   {
-    "id": "mu-004",
-    "name": "No Venue Event",
-    "description": "Online event with no physical location.",
-    "link": "https://www.meetup.com/online/events/mu-004",
-    "dateTime": "2026-10-10T18:00:00",
+    "eventId": "mu-004",
+    "eventName": "No Venue Event",
+    "eventDescription": "Online event with no physical location.",
+    "eventUrl": "https://www.meetup.com/online/events/mu-004",
+    "startDateTime": "2026-10-10T18:00:00",
     "timezone": "America/New_York",
-    "isFree": true,
-    "topics": ["Tech"],
-    "images": [],
+    "isPaidEvent": false,
+    "isOnline": true,
+    "eventType": "ONLINE",
+    "topics": [
+      { "id": "t1", "name": "Tech", "urlkey": "tech" }
+    ],
+    "featuredPhotoUrl": null,
     "venue": null,
     "group": {
       "name": "Online Group"

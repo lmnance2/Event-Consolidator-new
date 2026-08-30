@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useLayoutEffect, useRef, useCallback, forwardRef } from "react";
+import { useState, useLayoutEffect, useRef, useCallback, forwardRef, useEffect } from "react";
 import Image from "next/image";
 import { Category } from "@prisma/client";
 import {
   CalendarCheck,
-  CalendarPlus,
   ChevronDown,
   Heart,
   Loader2,
+  Share2,
+  UserPlus,
 } from "lucide-react";
 import {
   Sheet,
@@ -24,6 +25,16 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar } from "@/components/ui/avatar";
+import { InviteFriendsDialog } from "@/components/friends/invite-friends-dialog";
 import { formatFullDate, formatTime, priceLabel, distanceLabel } from "@/lib/events/format";
 import { googleMapsUrl, appleMapsUrl } from "@/lib/events/maps";
 import { googleCalendarUrl, appleCalendarUrl } from "@/lib/calendar/deep-links";
@@ -118,11 +129,92 @@ const PanelToggle = forwardRef<HTMLButtonElement, PanelToggleProps>(
   }
 );
 
-interface AddToCalendarMenuProps {
-  event: PanelEvent;
+interface FriendGoingUser {
+  id: string;
+  name: string | null;
+  image: string | null;
 }
 
-function AddToCalendarMenu({ event }: AddToCalendarMenuProps) {
+function namesSummary(friends: FriendGoingUser[]): string {
+  if (friends.length === 1) return `${friends[0]?.name ?? "A friend"} is going`;
+  if (friends.length === 2)
+    return `${friends[0]?.name ?? "A friend"} and ${friends[1]?.name ?? "a friend"} are going`;
+  return `${friends[0]?.name ?? "A friend"}, ${friends[1]?.name ?? "a friend"}, and ${friends.length - 2} others`;
+}
+
+interface FriendsGoingSectionProps {
+  eventId: string;
+}
+
+function FriendsGoingSection({ eventId }: FriendsGoingSectionProps) {
+  const [friends, setFriends] = useState<FriendGoingUser[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/events/${eventId}/friends-going`)
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as FriendGoingUser[];
+        if (!cancelled) setFriends(data);
+      })
+      .catch(() => {
+        if (!cancelled) setFriends([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
+  if (friends === null) {
+    return (
+      <section className="mt-6">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Friends going
+        </h3>
+        <Skeleton className="mt-2 h-4 w-40" />
+      </section>
+    );
+  }
+
+  if (friends.length === 0) return null;
+
+  return (
+    <section className="mt-6">
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        Friends going
+      </h3>
+      {friends.length < 3 ? (
+        <p className="mt-2 text-sm text-foreground">{namesSummary(friends)}</p>
+      ) : (
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex -space-x-2">
+            {friends.slice(0, 4).map((f) => (
+              <Avatar
+                key={f.id}
+                user={f}
+                size={28}
+                className="ring-2 ring-background"
+                alt=""
+              />
+            ))}
+          </div>
+          <p className="text-sm text-foreground">{namesSummary(friends)}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface ShareMenuProps {
+  event: PanelEvent;
+  isPro: boolean;
+}
+
+function ShareMenu({ event, isPro }: ShareMenuProps) {
+  const [upsellOpen, setUpsellOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
   const calendarEvent = {
     id: event.id,
     title: event.title,
@@ -130,6 +222,14 @@ function AddToCalendarMenu({ event }: AddToCalendarMenuProps) {
     startTime: new Date(event.startTime),
     endTime: event.endTime ? new Date(event.endTime) : null,
     venue: event.venueName,
+  };
+
+  const copyLink = () => {
+    const url = `${window.location.origin}/e/${event.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    });
   };
 
   const openGoogleCalendar = () => {
@@ -145,29 +245,78 @@ function AddToCalendarMenu({ event }: AddToCalendarMenuProps) {
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <CalendarPlus className="h-3.5 w-3.5" />
-            <span>Add to calendar</span>
-            <ChevronDown className="h-3 w-3 opacity-60" />
-          </Button>
-        }
+    <>
+      <Dialog open={upsellOpen} onOpenChange={setUpsellOpen}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Invite friends is a Pro feature.</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Upgrade to send this event to specific friends.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setUpsellOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="brand" disabled title="Coming soon">
+              Upgrade to Pro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Share2 className="h-3.5 w-3.5" />
+              <span>{copySuccess ? "Copied!" : "Share"}</span>
+              <ChevronDown className="h-3 w-3 opacity-60" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end" sideOffset={4}>
+          <DropdownMenuItem onClick={copyLink}>
+            Copy link
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={openGoogleCalendar}>
+            Google Calendar
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={openAppleCalendar}>
+            Apple Calendar
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={downloadIcs}>
+            Download .ics
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              if (isPro) {
+                setInviteOpen(true);
+              } else {
+                setUpsellOpen(true);
+              }
+            }}
+          >
+            <UserPlus className="h-3.5 w-3.5 mr-2 shrink-0" />
+            Invite friends
+            {!isPro && (
+              <span className="ml-auto text-[10px] font-medium text-brand uppercase tracking-wide">
+                Pro
+              </span>
+            )}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <InviteFriendsDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        eventId={event.id}
+        eventTitle={event.title}
       />
-      <DropdownMenuContent align="end" sideOffset={4}>
-        <DropdownMenuItem onClick={openGoogleCalendar}>
-          Google Calendar
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={openAppleCalendar}>
-          Apple Calendar
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={downloadIcs}>
-          Download .ics
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </>
   );
 }
 
@@ -176,7 +325,7 @@ export function EventDetailsPanel({ event, onClose }: EventDetailsPanelProps) {
   const [isTruncated, setIsTruncated] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
 
-  const { savedIds, goingIds, isLoading, toggleSave, toggleGoing, isSavePending, isGoingPending } = useEventState();
+  const { savedIds, goingIds, isLoading, toggleSave, toggleGoing, isSavePending, isGoingPending, isPro } = useEventState();
 
   const saveBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -221,7 +370,7 @@ export function EventDetailsPanel({ event, onClose }: EventDetailsPanelProps) {
   const distance = distanceLabel(event.distanceMi);
 
   const timeLabel = event.endTime
-    ? `${formatTime(event.startTime)} – ${formatTime(event.endTime)}`
+    ? `${formatTime(event.startTime)} - ${formatTime(event.endTime)}`
     : formatTime(event.startTime);
 
   return (
@@ -306,9 +455,12 @@ export function EventDetailsPanel({ event, onClose }: EventDetailsPanelProps) {
                   </button>
                 )}
               </div>
-              <Separator />
             </>
           )}
+
+          <FriendsGoingSection eventId={event.id} />
+
+          <Separator />
 
           <div className="space-y-3">
             <div className="text-xs uppercase tracking-wide text-muted-foreground">Venue</div>
@@ -351,7 +503,7 @@ export function EventDetailsPanel({ event, onClose }: EventDetailsPanelProps) {
               onClick={handleGoing}
               eventTitle={event.title}
             />
-            <AddToCalendarMenu event={event} />
+            <ShareMenu event={event} isPro={isPro} />
           </div>
 
           <a

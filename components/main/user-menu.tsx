@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Settings, LogOut, ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Settings, LogOut, ChevronDown, Users } from "lucide-react";
 import { signOut } from "next-auth/react";
 import {
   Popover,
@@ -11,6 +12,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { useEventState } from "@/components/providers/event-state-provider";
 import { cn } from "@/lib/utils";
 
 interface UserMenuProps {
@@ -42,18 +45,39 @@ function UserAvatar({ name, image }: { name: string | null; image: string | null
 }
 
 export function UserMenu({ name, email, image }: UserMenuProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const { pendingFriendRequests } = useEventState();
+
+  const prefetchMenu = useCallback(() => {
+    router.prefetch("/friends");
+    router.prefetch("/settings");
+  }, [router]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        aria-label="User menu"
+        onMouseEnter={prefetchMenu}
+        onFocus={prefetchMenu}
+        aria-label={
+          pendingFriendRequests > 0
+            ? `User menu, ${pendingFriendRequests} pending friend request${pendingFriendRequests === 1 ? "" : "s"}`
+            : "User menu"
+        }
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm transition-colors duration-150",
+          "relative inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm transition-colors duration-150",
           "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         )}
       >
-        <UserAvatar name={name} image={image} />
+        <span className="relative">
+          <UserAvatar name={name} image={image} />
+          {pendingFriendRequests > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-brand ring-2 ring-background"
+            />
+          )}
+        </span>
         <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56 p-1">
@@ -66,6 +90,22 @@ export function UserMenu({ name, email, image }: UserMenuProps) {
           )}
         </div>
         <Separator className="my-1" />
+        <Link
+          href="/friends"
+          onClick={() => setOpen(false)}
+          className={cn(
+            "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+            "hover:bg-muted transition-colors duration-150"
+          )}
+        >
+          <Users className="size-4 text-muted-foreground" aria-hidden />
+          Friends
+          {pendingFriendRequests > 0 && (
+            <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[11px]">
+              {pendingFriendRequests}
+            </Badge>
+          )}
+        </Link>
         <Link
           href="/settings"
           onClick={() => setOpen(false)}

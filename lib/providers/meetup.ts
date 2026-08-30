@@ -2,6 +2,7 @@ import "server-only";
 import type { Category } from "@prisma/client";
 import type { NormalizedEventInput, ProviderAdapter } from "./types";
 import { assertHttpsUrl } from "./url";
+import { parseLocalDateTime as parseLocalDateTimeShared } from "./timezone";
 
 const ACTOR_ID = "filip_cicvarek/meetup-scraper";
 
@@ -77,32 +78,42 @@ interface MeetupVenue {
   address?: string;
 }
 
-interface MeetupEvent {
+interface MeetupTopicObject {
   id?: string;
   name?: string;
-  description?: string;
-  link?: string;
-  dateTime?: string;
-  endTime?: string;
+  urlkey?: string;
+}
+
+interface MeetupEvent {
+  eventId?: string;
+  eventName?: string;
+  eventDescription?: string;
+  eventUrl?: string;
+  startDateTime?: string;
+  endDateTime?: string;
   timezone?: string;
-  isFree?: boolean;
-  fee?: { amount?: number; currency?: string };
-  topics?: string[];
-  images?: Array<{ url?: string }>;
+  isOnline?: boolean;
+  eventType?: string;
+  isPaidEvent?: boolean;
+  feeAmount?: number;
+  feeCurrency?: string;
+  topics?: Array<MeetupTopicObject | string>;
+  featuredPhotoUrl?: string;
   venue?: MeetupVenue | null;
   group?: { name?: string };
 }
 
-function mapCategory(topics: string[]): Category {
-  for (const topic of topics) {
-    const mapped = TOPIC_TO_CATEGORY[topic];
+function mapCategory(topics: Array<MeetupTopicObject | string>): Category {
+  const names = topics.map((t) => (typeof t === "string" ? t : t.name ?? "")).filter(Boolean);
+  for (const name of names) {
+    const mapped = TOPIC_TO_CATEGORY[name];
     if (mapped) return mapped;
   }
-  if (topics.length > 0) {
+  if (names.length > 0) {
     console.warn(
       JSON.stringify({
         event: "meetup.unmapped_topics",
-        topics,
+        topics: names,
         action: "fallback_to_OTHER",
       })
     );
@@ -110,73 +121,31 @@ function mapCategory(topics: string[]): Category {
   return "OTHER";
 }
 
-function buildIsoOffset(sign: string, hours: string, mins?: string): string {
-  const h = hours.padStart(2, "0");
-  const m = (mins ?? "00").padStart(2, "0");
-  return `${sign}${h}:${m}`;
-}
-
-function parseLocalDateTime(dateTimeStr: string, timezone: string): Date {
-  const isoLike = dateTimeStr.includes("T")
-    ? dateTimeStr
-    : dateTimeStr.replace(" ", "T");
-
-  if (isoLike.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(isoLike)) {
-    return new Date(isoLike);
-  }
-
-  try {
-    const offsetFormatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: timezone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZoneName: "shortOffset",
-    });
-    const offsetParts = offsetFormatter.formatToParts(new Date(isoLike));
-    const offsetStr = offsetParts.find((p) => p.type === "timeZoneName")?.value ?? "GMT";
-    const offsetMatch = offsetStr.match(/GMT([+-])(\d+)(?::(\d+))?/);
-    if (offsetMatch) {
-      const isoOffset = buildIsoOffset(offsetMatch[1], offsetMatch[2], offsetMatch[3]);
-      return new Date(`${isoLike}${isoOffset}`);
-    }
-    if (offsetStr === "GMT") {
-      return new Date(`${isoLike}+00:00`);
-    }
-  } catch {
-  }
-
-  console.warn(
-    JSON.stringify({
-      event: "meetup.tz_parse_fallback",
-      timezone,
-      dateTimeStr,
-      reason: "offset_extraction_failed",
-    })
-  );
-  return new Date(isoLike + "Z");
-}
+const parseLocalDateTime = (dateTimeStr: string, timezone: string) =>
+  parseLocalDateTimeShared(dateTimeStr, timezone, "meetup");
 
 function normalizeEvent(raw: MeetupEvent): NormalizedEventInput | null {
-  const venue = raw.venue;
-  if (!venue) {
+  // Feed is location-based; online-only events have no meaningful physical location.
+  if (raw.isOnline || raw.eventType === "ONLINE" || !raw.venue) {
     console.warn(
       JSON.stringify({
         event: "meetup.skip_no_venue",
-        externalId: raw.id,
+        externalId: raw.eventId,
+        online: raw.isOnline || raw.eventType === "ONLINE",
         action: "skip",
       })
     );
     return null;
   }
 
+  const venue = raw.venue;
   const lat = venue.lat;
   const lng = venue.lon;
   if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) {
     console.warn(
       JSON.stringify({
         event: "meetup.skip_no_geo",
-        externalId: raw.id,
+        externalId: raw.eventId,
         venueName: venue.name,
         action: "skip",
       })
@@ -184,12 +153,12 @@ function normalizeEvent(raw: MeetupEvent): NormalizedEventInput | null {
     return null;
   }
 
-  const dateTimeStr = raw.dateTime;
+  const dateTimeStr = raw.startDateTime;
   if (!dateTimeStr) {
     console.warn(
       JSON.stringify({
         event: "meetup.skip_no_start_time",
-        externalId: raw.id,
+        externalId: raw.eventId,
         action: "skip",
       })
     );
@@ -200,31 +169,29 @@ function normalizeEvent(raw: MeetupEvent): NormalizedEventInput | null {
   const startTime = parseLocalDateTime(dateTimeStr, timezone);
   if (startTime <= new Date()) return null;
 
-  const endTime = raw.endTime
-    ? parseLocalDateTime(raw.endTime, timezone)
+  const endTime = raw.endDateTime
+    ? parseLocalDateTime(raw.endDateTime, timezone)
     : undefined;
 
-  // Apify meetup-scraper returns fee.amount in whole USD, not cents.
-  const isFree = raw.isFree ?? false;
-  const price = !isFree && raw.fee?.amount != null
-    ? Math.round(raw.fee.amount * 100)
+  // feeAmount is in whole currency units, not cents.
+  const isFree = raw.isPaidEvent === false || raw.isPaidEvent == null;
+  const price = !isFree && raw.feeAmount != null
+    ? Math.round(raw.feeAmount * 100)
     : undefined;
 
-  const topics = raw.topics ?? [];
-  const category = mapCategory(topics);
+  const category = mapCategory(raw.topics ?? []);
 
-  const imageUrl = raw.images?.[0]?.url ?? undefined;
-  const title = (raw.name ?? "").trim().replace(/\s+/g, " ");
+  const title = (raw.eventName ?? "").trim().replace(/\s+/g, " ");
   const venueName = venue.name ?? venue.address ?? "Unknown Venue";
 
-  const externalId = raw.id ?? raw.link ?? title;
+  const externalId = raw.eventId ?? raw.eventUrl ?? title;
 
   return {
     provider: "MEETUP",
     externalId,
     title,
-    description: raw.description ?? undefined,
-    imageUrl,
+    description: raw.eventDescription ?? undefined,
+    imageUrl: raw.featuredPhotoUrl ?? undefined,
     startTime,
     endTime,
     venue: venueName,
@@ -233,7 +200,7 @@ function normalizeEvent(raw: MeetupEvent): NormalizedEventInput | null {
     price,
     isFree,
     category,
-    ticketUrl: assertHttpsUrl(raw.link, `https://www.meetup.com/events/${externalId}`),
+    ticketUrl: assertHttpsUrl(raw.eventUrl, `https://www.meetup.com/events/${externalId}`),
   };
 }
 
@@ -262,7 +229,8 @@ export const meetupAdapter: ProviderAdapter = {
         run = await client.actor(ACTOR_ID).call({
           city: metro.city,
           state: metro.state,
-          country: "US",
+          country: "us",
+          maxResults: 200,
           maxItems: 200,
         }) as { defaultDatasetId: string; status: string };
       } catch (err) {

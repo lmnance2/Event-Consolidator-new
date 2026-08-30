@@ -31,7 +31,7 @@ function makeMockApifyModule(items: unknown[]) {
   });
 
   class MockApifyClient {
-    actor() {
+    task() {
       return { call: mockCall };
     }
     dataset() {
@@ -49,7 +49,7 @@ async function getAdapterWithMock(items: unknown[]) {
   return { adapter: mod.eventbriteAdapter, mockCall, mockListItems };
 }
 
-describe("eventbrite adapter — normalization (Apify-backed)", () => {
+describe("eventbrite adapter — normalization", () => {
   it("skips provider and yields nothing when APIFY_API_TOKEN is missing", async () => {
     vi.stubEnv("APIFY_API_TOKEN", "");
     const { adapter } = await getAdapterWithMock(fixtureData);
@@ -57,7 +57,7 @@ describe("eventbrite adapter — normalization (Apify-backed)", () => {
     expect(results).toHaveLength(0);
   });
 
-  it("normalizes valid events and skips events without venue", async () => {
+  it("normalizes valid events and skips events missing geo", async () => {
     vi.stubEnv("APIFY_API_TOKEN", "test-token");
     const { adapter } = await getAdapterWithMock(fixtureData);
     const results = await collectAll(adapter.fetchEvents());
@@ -82,16 +82,16 @@ describe("eventbrite adapter — normalization (Apify-backed)", () => {
     expect(first.externalId).toBe("eb-001");
     expect(first.title).toBe("NYC Tech Networking Night");
     expect(first.category).toBe("NETWORKING");
+    // Actor doesn't provide price/free info; adapter defaults to unknown.
     expect(first.isFree).toBe(false);
-    expect(first.price).toBe(2500);
+    expect(first.price).toBeUndefined();
     expect(first.latitude).toBeCloseTo(40.7282, 3);
     expect(first.longitude).toBeCloseTo(-73.9942, 3);
-    expect(first.venue).toBe("Werk NYC");
+    expect(first.venue).toBe("Werk NYC, 123 Broadway, New York, NY 10006");
     expect(first.description).toBe("Connect with engineers and founders in the NYC tech scene.");
     expect(first.imageUrl).toBe("https://img.evbuc.com/tech-night-original.jpg");
 
-    expect(second.isFree).toBe(true);
-    expect(second.price).toBeUndefined();
+    expect(second.externalId).toBe("eb-002");
   });
 
   it("passes the correct input shape to the Apify actor", async () => {
@@ -101,27 +101,58 @@ describe("eventbrite adapter — normalization (Apify-backed)", () => {
 
     expect(mockCall).toHaveBeenCalledWith(
       expect.objectContaining({
-        location: expect.any(String),
+        country: expect.any(String),
+        city: expect.any(String),
         maxResults: 200,
+        enrichOrganizers: false,
       })
     );
     const firstCallArg = mockCall.mock.calls[0][0] as Record<string, unknown>;
-    expect(firstCallArg).not.toHaveProperty("searchTerm");
-    expect(firstCallArg).not.toHaveProperty("lat");
-    expect(firstCallArg).not.toHaveProperty("lng");
+    expect(firstCallArg).not.toHaveProperty("searchQuery");
+    expect(firstCallArg).not.toHaveProperty("location");
   });
 
-  it("skips the third event (no venue) and logs a warning", async () => {
+  it("skips the third event (no geo) and logs a warning", async () => {
     vi.stubEnv("APIFY_API_TOKEN", "test-token");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { adapter } = await getAdapterWithMock(fixtureData);
     const results = await collectAll(adapter.fetchEvents());
     expect(results).toHaveLength(2);
     const warnMessages = warnSpy.mock.calls.map((c) => c[0] as string);
-    expect(warnMessages.some((m) => m.includes("skip_no_venue"))).toBe(true);
+    expect(warnMessages.some((m) => m.includes("skip_no_geo"))).toBe(true);
   });
 
-  it("uses imageUrl from actor output", async () => {
+  it("skips online events with a warning", async () => {
+    vi.stubEnv("APIFY_API_TOKEN", "test-token");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onlineEvent = {
+      ...fixtureData[0],
+      eventbrite_event_id: "eb-online",
+      is_online_event: true,
+    };
+    const { adapter } = await getAdapterWithMock([onlineEvent]);
+    const results = await collectAll(adapter.fetchEvents());
+    expect(results).toHaveLength(0);
+    const warnMessages = warnSpy.mock.calls.map((c) => c[0] as string);
+    expect(warnMessages.some((m) => m.includes("skip_online"))).toBe(true);
+  });
+
+  it("skips cancelled events with a warning", async () => {
+    vi.stubEnv("APIFY_API_TOKEN", "test-token");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const cancelledEvent = {
+      ...fixtureData[0],
+      eventbrite_event_id: "eb-cancelled",
+      status: "cancelled",
+    };
+    const { adapter } = await getAdapterWithMock([cancelledEvent]);
+    const results = await collectAll(adapter.fetchEvents());
+    expect(results).toHaveLength(0);
+    const warnMessages = warnSpy.mock.calls.map((c) => c[0] as string);
+    expect(warnMessages.some((m) => m.includes("skip_cancelled"))).toBe(true);
+  });
+
+  it("uses image_url from actor output", async () => {
     vi.stubEnv("APIFY_API_TOKEN", "test-token");
     const { adapter } = await getAdapterWithMock(fixtureData);
     const results = await collectAll(adapter.fetchEvents()) as Array<{ imageUrl?: string }>;
@@ -141,7 +172,7 @@ describe("eventbrite adapter — normalization (Apify-backed)", () => {
     const mockCall = vi.fn().mockRejectedValue(new Error("Actor timed out"));
 
     class MockApifyClient {
-      actor() { return { call: mockCall }; }
+      task() { return { call: mockCall }; }
       dataset() { return { listItems: vi.fn() }; }
     }
 
@@ -162,7 +193,7 @@ describe("eventbrite adapter — normalization (Apify-backed)", () => {
     });
 
     class MockApifyClient {
-      actor() { return { call: mockCall }; }
+      task() { return { call: mockCall }; }
       dataset() { return { listItems: vi.fn() }; }
     }
 
@@ -180,10 +211,8 @@ describe("eventbrite ticketUrl — XSS guard", () => {
   function makeEventWithUrl(url: unknown) {
     return {
       ...fixtureData[0],
-      id: "eb-url-test",
+      eventbrite_event_id: "eb-url-test",
       url,
-      start_date: "2030-01-01T18:00:00Z",
-      end_date: "2030-01-01T21:00:00Z",
     };
   }
 
@@ -215,9 +244,7 @@ describe("eventbrite ticketUrl — XSS guard", () => {
     vi.stubEnv("APIFY_API_TOKEN", "test-token");
     const base = {
       ...fixtureData[0],
-      id: "eb-url-test",
-      start_date: "2030-01-01T18:00:00Z",
-      end_date: "2030-01-01T21:00:00Z",
+      eventbrite_event_id: "eb-url-test",
     };
     delete (base as Record<string, unknown>).url;
     const { adapter } = await getAdapterWithMock([base]);
@@ -258,34 +285,30 @@ describe("eventbrite category map completeness", () => {
     ["School Activities", "EDUCATION"],
   ];
 
-  for (const [categoryName, expected] of categoryCases) {
-    it(`maps category "${categoryName}" to ${expected}`, async () => {
+  for (const [tag, expected] of categoryCases) {
+    it(`maps tag "${tag}" to ${expected}`, async () => {
       vi.stubEnv("APIFY_API_TOKEN", "test-token");
 
-      const eventWithCategory = {
+      const eventWithTag = {
         ...fixtureData[0],
-        id: `test-cat-${categoryName}`,
-        category: categoryName,
-        start_date: "2030-01-01T18:00:00Z",
-        end_date: "2030-01-01T21:00:00Z",
+        eventbrite_event_id: `test-cat-${tag}`,
+        tags: [tag],
       };
 
-      const { adapter } = await getAdapterWithMock([eventWithCategory]);
+      const { adapter } = await getAdapterWithMock([eventWithTag]);
       const results = await collectAll(adapter.fetchEvents()) as Array<{ category: string }>;
       expect(results[0]?.category).toBe(expected);
     });
   }
 
-  it("logs and falls back to OTHER for unknown category", async () => {
+  it("logs and falls back to OTHER for unknown tag", async () => {
     vi.stubEnv("APIFY_API_TOKEN", "test-token");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const eventWithUnknown = {
       ...fixtureData[0],
-      id: "test-unknown-cat",
-      category: "Quantum Experiences",
-      start_date: "2030-01-01T18:00:00Z",
-      end_date: "2030-01-01T21:00:00Z",
+      eventbrite_event_id: "test-unknown-cat",
+      tags: ["Quantum Experiences"],
     };
 
     const { adapter } = await getAdapterWithMock([eventWithUnknown]);
@@ -295,18 +318,16 @@ describe("eventbrite category map completeness", () => {
     expect(warnMessages.some((m) => m.includes("unmapped_category"))).toBe(true);
   });
 
-  it("returns OTHER when category is undefined", async () => {
+  it("returns OTHER when tags is empty", async () => {
     vi.stubEnv("APIFY_API_TOKEN", "test-token");
 
-    const eventWithNoCategory = {
+    const eventWithNoTags = {
       ...fixtureData[0],
-      id: "test-no-cat",
-      category: undefined,
-      start_date: "2030-01-01T18:00:00Z",
-      end_date: "2030-01-01T21:00:00Z",
+      eventbrite_event_id: "test-no-cat",
+      tags: [],
     };
 
-    const { adapter } = await getAdapterWithMock([eventWithNoCategory]);
+    const { adapter } = await getAdapterWithMock([eventWithNoTags]);
     const results = await collectAll(adapter.fetchEvents()) as Array<{ category: string }>;
     expect(results[0]?.category).toBe("OTHER");
   });

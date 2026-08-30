@@ -58,3 +58,41 @@ export function createForgotPasswordRateLimiter(): Ratelimit {
     analytics: false,
   });
 }
+
+/**
+ * Per email:senderId tuple — 5 requests per hour.
+ * Prevents a single sender from flooding a specific target address.
+ */
+export function createFriendRequestTupleRateLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(5, "1 h"),
+    prefix: "rl:friend-req:tuple",
+    analytics: false,
+  });
+}
+
+/**
+ * Per senderId fallback — 30 requests per hour.
+ * Prevents a single sender from rotating target emails to bypass the tuple limit.
+ */
+export function createFriendRequestSenderRateLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(30, "1 h"),
+    prefix: "rl:friend-req:sender",
+    analytics: false,
+  });
+}
+
+/**
+ * Per sender — 10 event invites per hour.
+ */
+export function createEventInviteRateLimiter(): Ratelimit {
+  return new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(10, "1 h"),
+    prefix: "rl:event-invite",
+    analytics: false,
+  });
+}

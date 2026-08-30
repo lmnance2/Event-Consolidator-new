@@ -2,7 +2,7 @@
 
 Event Atlas is a **discovery platform** — not a ticketing platform. It aggregates events from Ticketmaster, Eventbrite, and Meetup into a single personalized feed. Users discover events here; they buy tickets or RSVP on the original provider's site.
 
-> **Current build status (2026-07-11):** Save, Going/RSVP, friends, reminder emails, and Pro-tier features are **not yet implemented** — the sections below describe the intended product. The landing page has been trimmed to stop promising these features until they ship. Currently shipped: aggregation feed, filters, ZIP-based location, credentials + Google auth, settings/preferences, provider ticket-link redirect.
+> **Current build status (2026-08-11):** Save, Going/RSVP, reminder emails, friends (requests, accept/decline, view friends' Going, share event via public link), and Pro-tier feature gates (invite friends, activity feed) have all shipped. Pro subscription billing is still deferred (post-MVP Stripe). Currently shipped: aggregation feed, filters, ZIP-based location, credentials + Google auth, settings/preferences, Save + Going + Calendar export, reminder cron, friends + share + invite + activity, `/e/[id]` public share URL.
 
 ---
 

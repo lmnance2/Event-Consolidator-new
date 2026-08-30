@@ -12,12 +12,12 @@ export default async function MainLayout({
 
   return (
     <div className="min-h-svh flex flex-col">
-      <Header
-        userName={session?.user?.name ?? null}
-        userEmail={session?.user?.email ?? null}
-        userImage={session?.user?.image ?? null}
-      />
       <EventStateProvider>
+        <Header
+          userName={session?.user?.name ?? null}
+          userEmail={session?.user?.email ?? null}
+          userImage={session?.user?.image ?? null}
+        />
         <main className="flex-1">{children}</main>
         <SaveLimitDialog />
       </EventStateProvider>

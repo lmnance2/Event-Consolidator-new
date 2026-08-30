@@ -17,6 +17,7 @@ interface EventStateContextValue {
   savedCount: number;
   isLoading: boolean;
   isPro: boolean;
+  pendingFriendRequests: number;
   toggleSave: (id: string) => Promise<{ success: boolean }>;
   toggleGoing: (id: string) => void;
   showLimitDialog: boolean;
@@ -39,6 +40,7 @@ interface EventStateResponse {
   saved: string[];
   going: string[];
   isPro: boolean;
+  pendingFriendRequests: number;
 }
 
 interface SaveErrorResponse {
@@ -51,6 +53,7 @@ export function EventStateProvider({ children }: { children: React.ReactNode }) 
   const [goingIds, setGoingIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isPro, setIsPro] = useState(false);
+  const [pendingFriendRequests, setPendingFriendRequests] = useState(0);
   const [showLimitDialog, setShowLimitDialog] = useState(false);
 
   // Promote to state so components re-render when in-flight status changes.
@@ -78,6 +81,7 @@ export function EventStateProvider({ children }: { children: React.ReactNode }) 
         setSavedIds(new Set(data.saved));
         setGoingIds(new Set(data.going));
         setIsPro(data.isPro);
+        setPendingFriendRequests(data.pendingFriendRequests ?? 0);
         setIsLoading(false);
       })
       .catch(() => {
@@ -224,6 +228,7 @@ export function EventStateProvider({ children }: { children: React.ReactNode }) 
         savedCount,
         isLoading,
         isPro,
+        pendingFriendRequests,
         toggleSave,
         toggleGoing,
         showLimitDialog,

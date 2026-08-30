@@ -38,6 +38,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
+        suppressHydrationWarning
       >
         <AuthSessionProvider>{children}</AuthSessionProvider>
       </body>

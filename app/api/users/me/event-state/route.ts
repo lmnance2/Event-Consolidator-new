@@ -11,7 +11,7 @@ export async function GET() {
   const userId = session.user.id;
 
   try {
-    const [savedEvents, goingEvents, subscription] = await Promise.all([
+    const [savedEvents, goingEvents, subscription, pendingCount, friendCount] = await Promise.all([
       prisma.savedEvent.findMany({
         where: { userId },
         select: { eventId: true },
@@ -24,6 +24,12 @@ export async function GET() {
         where: { userId },
         select: { status: true },
       }),
+      prisma.friendRequest.count({
+        where: { toUserId: userId, status: "PENDING" },
+      }),
+      prisma.friendship.count({
+        where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      }),
     ]);
 
     return new Response(
@@ -31,6 +37,8 @@ export async function GET() {
         saved: savedEvents.map((e) => e.eventId),
         going: goingEvents.map((e) => e.eventId),
         isPro: isPro(subscription),
+        pendingFriendRequests: pendingCount,
+        friendCount,
       }),
       {
         headers: {

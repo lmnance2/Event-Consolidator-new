@@ -1,0 +1,10 @@
+{
+  "email": "pw-test-1788124358649@example.com",
+  "signupStatus": 500,
+  "signupUrlAfter": "http://localhost:3000/signup",
+  "signupFormErrorText": "Name\nEmail\nPassword\n\n8+ characters. 12+ is stronger.\n\nZIP code\n\nSo we can show events near you\n\nSomething went wrong. Please try again.\nCreate account",
+  "loginCallbackStatus": 200,
+  "loginCallbackBody": "{\"url\":\"http://localhost:3000/login?error=CredentialsSignin&code=credentials\"}",
+  "loginUrlAfter": "http://localhost:3000/login",
+  "loginFormErrorText": "Email\nPassword\nForgot password?\nWrong email or password.\nLog in"
+}

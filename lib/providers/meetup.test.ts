@@ -127,7 +127,7 @@ describe("meetup adapter — normalization", () => {
 });
 
 describe("meetup actor input shape", () => {
-  it("passes city, state, country, and maxItems — not searchTerm or maxResults", async () => {
+  it("passes city, state, lowercase country, and both maxResults + maxItems", async () => {
     vi.stubEnv("APIFY_API_TOKEN", "test-token");
     const { adapter, mockCall } = await getAdapterWithMock(fixtureData);
     await collectAll(adapter.fetchEvents());
@@ -137,11 +137,13 @@ describe("meetup actor input shape", () => {
 
     expect(firstCallArg).toHaveProperty("city");
     expect(firstCallArg).toHaveProperty("state");
-    expect(firstCallArg).toHaveProperty("country", "US");
+    // Actor's input schema requires lowercase ISO-3166 alpha-2.
+    expect(firstCallArg).toHaveProperty("country", "us");
+    // Actor requires `maxResults`; `maxItems` kept as a defensive alias.
+    expect(firstCallArg).toHaveProperty("maxResults", 200);
     expect(firstCallArg).toHaveProperty("maxItems", 200);
 
     expect(firstCallArg).not.toHaveProperty("searchTerm");
-    expect(firstCallArg).not.toHaveProperty("maxResults");
   });
 
   it("records failed metro in metroFailures when actor run throws", async () => {
@@ -188,9 +190,9 @@ describe("meetup ticketUrl — XSS guard", () => {
   function makeEventWithLink(link: unknown) {
     return {
       ...fixtureData[0],
-      id: "mu-url-test",
-      link,
-      dateTime: "2030-01-01T18:00:00",
+      eventId: "mu-url-test",
+      eventUrl: link,
+      startDateTime: "2030-01-01T18:00:00",
       timezone: "America/Chicago",
     };
   }
@@ -221,8 +223,8 @@ describe("meetup ticketUrl — XSS guard", () => {
 
   it("falls back to canonical URL when actor returns undefined", async () => {
     vi.stubEnv("APIFY_API_TOKEN", "test-token");
-    const base = { ...fixtureData[0], id: "mu-url-test", dateTime: "2030-01-01T18:00:00", timezone: "America/Chicago" };
-    delete (base as Record<string, unknown>).link;
+    const base = { ...fixtureData[0], eventId: "mu-url-test", startDateTime: "2030-01-01T18:00:00", timezone: "America/Chicago" };
+    delete (base as Record<string, unknown>).eventUrl;
     const { adapter } = await getAdapterWithMock([base]);
     const results = await collectAll(adapter.fetchEvents()) as Array<{ ticketUrl: string }>;
     expect(results[0].ticketUrl).toBe("https://www.meetup.com/events/mu-url-test");
@@ -245,9 +247,9 @@ describe("meetup timezone parsing — parseLocalDateTime (C1)", () => {
   ) {
     return {
       ...fixtureData[0],
-      id,
-      dateTime,
-      endTime: undefined,
+      eventId: id,
+      startDateTime: dateTime,
+      endDateTime: undefined,
       timezone,
     };
   }
@@ -370,11 +372,11 @@ describe("meetup category map completeness", () => {
 
       const eventWithTopic = {
         ...fixtureData[0],
-        id: `test-topic-${topic}`,
-        topics: [topic],
-        dateTime: "2030-01-01T18:00:00",
+        eventId: `test-topic-${topic}`,
+        topics: [{ name: topic }],
+        startDateTime: "2030-01-01T18:00:00",
         timezone: "America/New_York",
-        endTime: "2030-01-01T21:00:00",
+        endDateTime: "2030-01-01T21:00:00",
       };
 
       const { adapter } = await getAdapterWithMock([eventWithTopic]);
@@ -389,9 +391,9 @@ describe("meetup category map completeness", () => {
 
     const eventWithUnknown = {
       ...fixtureData[0],
-      id: "test-unknown-topic",
-      topics: ["Quantum Levitation"],
-      dateTime: "2030-01-01T18:00:00",
+      eventId: "test-unknown-topic",
+      topics: [{ name: "Quantum Levitation" }],
+      startDateTime: "2030-01-01T18:00:00",
       timezone: "America/New_York",
     };
 

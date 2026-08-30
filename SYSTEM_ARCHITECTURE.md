@@ -72,7 +72,20 @@
 | `/feed` | Yes | Main feed (SSR initial load + client infinite scroll) |
 | `/profile` | Yes | Saved, Going, history tabs |
 | `/settings` | Yes | Preferences + account |
+| `/friends` | Yes | Tabbed surface: Friends, Requests (incoming + sent), Add, Activity (Pro). SSR composes friends + requests + activity (page 1) in one server call; tab state in `?tab=` param. Default tab is intelligent (incoming pending > 0 → requests; else 0 friends → add; else friends). |
+| `/e/[id]` | No | Public event share URL. Internally rewrites to `/events/[id]` via `next.config.ts`. Both paths are excluded from the middleware auth matcher. |
+| `/events/[id]` | No | Public event page (SSR). Renders event card + Get Tickets. Inactive/expired events show an "event has ended" fallback. `generateMetadata` sets OG tags and `robots: { index: false, follow: true }` (v1 decision, revisit before v2). |
 | `GET /api/events` | Yes | Feed pagination endpoint. Shared query lives in `lib/events/feed-query.ts`; consumed by both the `/feed` Server Component (SSR page 1) and this route (client infinite scroll). Returns `FeedPage = { rows: FeedRow[], nextCursor: string \| null }` where `FeedRow` exposes `venueName` and `venueAddress` as separate fields — both currently set to `Event.venue` (single string), reserved for a future schema split without breaking UI callers. Client passes `?lat=&lng=` from sessionStorage; server prefers those over stored `User.lat/lng` for the query only (never persists them). Pro filter params are silently stripped for non-`ACTIVE` subscriptions before any DB work. |
+| `GET /api/events/[id]/friends-going` | Yes | Returns `Array<{id, name, image}>` of the caller's friends who are marked Going for this event. Empty array is the common case; the panel suppresses the section entirely when empty. |
+| `POST /api/events/[id]/invite` | Yes | Pro-only. Body `{ friendIds: string[] }`, max 20. Server silently drops non-mutual friends (anti-enumeration). Sends one Resend email per surviving recipient. Returns `{ sent, droppedNonFriend, droppedEmailFailure }`. Rate-limited (10/hour per sender). Refuses to send if `NEXTAUTH_URL` is unset (mirrors iter-8 reminder-cron guard). |
+| `POST /api/friends/requests` | Yes | Body `{ email }`. Silent-success `{ ok: true }` on every 200 path (unknown email, self, existing friendship, existing PENDING either direction, true success). Never leaks recipient existence. Rate-limited tuple `email:senderId` (5/hour) + sender-only fallback (30/hour); rate-limit hits return **429** with the same silent body. |
+| `GET /api/friends/requests` | Yes | Returns `{ incoming: RequestRow[], outgoing: RequestRow[] }`, each row `{id, createdAt, user: {id, name, image, email}}`. |
+| `PATCH /api/friends/requests/[id]` | Yes | Body `{ action: "accept" \| "decline" }`. IDOR: rejects if `toUserId !== session.user.id` with generic 404. Accept path uses `$transaction` with `isolationLevel: Serializable`; upsert into `Friendship` via `orderedPair(a, b)` to enforce the `userAId < userBId` invariant. P2002 on the unique pair → idempotent 200. |
+| `DELETE /api/friends/requests/[id]` | Yes | Cancel outgoing. IDOR: rejects if `fromUserId !== session.user.id`. Only allowed while status = PENDING. |
+| `GET /api/friends` | Yes | Returns `[{id, name, image, friendsSince}]` (friendsSince = ISO 8601 `Friendship.createdAt`). Other-user perspective. |
+| `DELETE /api/friends/[otherUserId]` | Yes | Unfriend. Derives pair via `orderedPair(session.user.id, otherUserId)`. Idempotent. |
+| `GET /api/social/activity` | Yes | Pro-only. Cursor-paginated feed of friends' recent Going + Save actions (last 30 days). Non-Pro → 403. Shared query lives in `lib/friends/activity.ts`; consumed by both the `/friends` SSR page 1 and this route. Filters on `event.isActive`. |
+| `GET /api/users/me/event-state` | Yes | Returns `{ saved, going, isPro, pendingFriendRequests, friendCount }`. Consumed by `EventStateProvider` mounted at `app/(main)/layout.tsx`. `pendingFriendRequests` powers the UserMenu badge; `friendCount` lets the panel skip the `friends-going` fetch when 0. |
 
 ---
 

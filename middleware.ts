@@ -20,6 +20,6 @@ export default auth((req: NextAuthRequest) => {
 
 export const config = {
   matcher: [
-    "/((?!$|_next/|favicon\\.ico|.*\\..*|api/|login(?:/|$)|signup(?:/|$)|reset-password(?:/|$)|forgot-password(?:/|$)).*)",
+    "/((?!$|_next/|favicon\\.ico|.*\\..*|api/|login(?:/|$)|signup(?:/|$)|reset-password(?:/|$)|forgot-password(?:/|$)|e(?:/|$)|events(?:/|$)).*)",
   ],
 };

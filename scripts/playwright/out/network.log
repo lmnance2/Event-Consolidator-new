@@ -1,0 +1,19 @@
+[signup] 200 GET http://localhost:3000/api/auth/session
+         null
+[signup] 200 GET http://localhost:3000/api/auth/session
+         null
+[signup] REQFAIL POST http://localhost:3000/api/auth/signup — net::ERR_ABORTED
+[signup] 500 POST http://localhost:3000/api/auth/signup
+         
+[login] 200 GET http://localhost:3000/api/auth/session
+         null
+[login] 200 GET http://localhost:3000/api/auth/providers
+         {"google":{"id":"google","name":"Google","type":"oidc","signinUrl":"http://localhost:3000/api/auth/signin/google","callbackUrl":"http://localhost:3000/api/auth/callback/google"},"credentials":{"id":"credentials","name":"Credentials","type":"credentials","signinUrl":"http://localhost:3000/api/auth/signin/credentials","callbackUrl":"http://localhost:3000/api/auth/callback/credentials"}}
+[login] 200 GET http://localhost:3000/api/auth/session
+         null
+[login] 200 GET http://localhost:3000/api/auth/csrf
+         {"csrfToken":"979b2ebd1ccd657ba217be76c7a7e5f5592ff6327c2693b3d50d268cc000a6c0"}
+[login] 200 POST http://localhost:3000/api/auth/callback/credentials?
+         {"url":"http://localhost:3000/login?error=CredentialsSignin&code=credentials"}
+[login] 200 GET http://localhost:3000/api/auth/session
+         null

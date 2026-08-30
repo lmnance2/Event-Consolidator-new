@@ -1,0 +1,228 @@
+[signup] info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[signup] error: A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <Suspense fallback={null}>
+      <SignupFormInner>
+        <AuthCard title="Create acc..." description="Join Event..." footer={<span>}>
+          <div className="w-full max...">
+            <Card className="border-bor...">
+              <div data-slot="card" data-size="default" className={"group/ca..."}>
+                <CardHeader>
+                <CardContent className="space-y-4">
+                  <div data-slot="card-content" className="px-(--card...">
+                    <GoogleButton>
+                    <div>
+                    <form id="auth-primary" onSubmit={function} className="space-y-4" noValidate={true} tabIndex={-1}>
+                      <Field label="Name" autoComplete="name" error={undefined} name="name" onChange={function onChange} ...>
+                        <div className="space-y-1.5">
+                          <div>
+                          <Input id="name" name="name" aria-invalid={undefined} aria-describedby={undefined} ...>
+                            <Input type={undefined} data-slot="input" className="w-full min..." id="name" name="name" ...>
+                              <FieldControl ref={function ref} type={undefined} data-slot="input" ...>
+                                <input
+                                  id="name"
+                                  disabled={false}
+                                  name="name"
+                                  ref={function}
+                                  aria-labelledby={undefined}
+                                  autoFocus={false}
+                                  defaultValue={undefined}
+                                  onChange={function}
+                                  onFocus={function}
+                                  onBlur={function}
+                                  onKeyDown={function}
+                                  type={undefined}
+                                  data-slot="input"
+                                  aria-invalid={undefined}
+                                  aria-describedby={undefined}
+                                  autoComplete="name"
+                                  className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 ..."
+-                                 style={{}}
+                                >
+                      <Field label="Email" type="email" autoComplete="email" error={undefined} name="email" ...>
+                        <div className="space-y-1.5">
+                          <div>
+                          <Input id="email" name="email" aria-invalid={undefined} aria-describedby={undefined} ...>
+                            <Input type="email" data-slot="input" className="w-full min..." id="email" name="email" ...>
+                              <FieldControl ref={function ref} type="email" data-slot="input" className="w-full min..." ...>
+                                <input
+                                  id="email"
+                                  disabled={false}
+                                  name="email"
+                                  ref={function}
+                                  aria-labelledby={undefined}
+                                  autoFocus={false}
+                                  defaultValue={undefined}
+                                  onChange={function}
+                                  onFocus={function}
+                                  onBlur={function}
+                                  onKeyDown={function}
+                                  type="email"
+                                  data-slot="input"
+                                  aria-invalid={undefined}
+                                  aria-describedby={undefined}
+                                  autoComplete="email"
+                                  className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 ..."
+-                                 style={{}}
+                                >
+                      <PasswordField label="Password" autoComplete="new-password" error={undefined} ...>
+                        <div className="space-y-1.5">
+                          <div>
+                          <div className="relative">
+                            <Input id="password" name="password" type="password" aria-invalid={undefined} ...>
+                              <Input type="password" data-slot="input" className="w-full min..." id="password" ...>
+                                <FieldControl ref={function ref} type="password" data-slot="input" ...>
+                                  <input
+                                    id="password"
+                                    disabled={false}
+                                    name="password"
+                                    ref={function}
+                                    aria-labelledby={undefined}
+                                    autoFocus={false}
+                                    defaultValue={undefined}
+                                    onChange={function}
+                                    onFocus={function}
+                                    onBlur={function}
+                                    onKeyDown={function}
+                                    type="password"
+                                    data-slot="input"
+                                    aria-invalid={undefined}
+                                    aria-describedby="password-help"
+                                    autoComplete="new-password"
+                                    className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-..."
+-                                   style={{}}
+                                  >
+                            ...
+                          ...
+                      <Field label="ZIP code" inputMode="numeric" autoComplete="postal-code" placeholder="e.g. 94102" ...>
+                        <div className="space-y-1.5">
+                          <div>
+                          <Input id="zipCode" name="zipCode" aria-invalid={undefined} aria-describedby="zipCode-help" ...>
+                            <Input type={undefined} data-slot="input" className="w-full min..." id="zipCode" ...>
+                              <FieldControl ref={function ref} type={undefined} data-slot="input" ...>
+                                <input
+                                  id="zipCode"
+                                  disabled={false}
+                                  name="zipCode"
+                                  ref={function}
+                                  aria-labelledby={undefined}
+                                  autoFocus={false}
+                                  defaultValue={undefined}
+                                  onChange={function}
+                                  onFocus={function}
+                                  onBlur={function}
+                                  onKeyDown={function}
+                                  type={undefined}
+                                  data-slot="input"
+                                  aria-invalid={undefined}
+                                  aria-describedby="zipCode-help"
+                                  inputMode="numeric"
+                                  autoComplete="postal-code"
+                                  placeholder="e.g. 94102"
+                                  maxLength={10}
+                                  className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 ..."
+-                                 style={{}}
+                                >
+                          ...
+                      ...
+                ...
+
+[signup] log: [Fast Refresh] rebuilding
+[signup] log: [Fast Refresh] done in 125ms
+[signup] error: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[login] info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[login] error: A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <Suspense fallback={null}>
+      <LoginFormInner>
+        <AuthCard title="Welcome back" description="Sign in to..." footer={<span>}>
+          <div className="w-full max...">
+            <Card className="border-bor...">
+              <div data-slot="card" data-size="default" className={"group/ca..."}>
+                <CardHeader>
+                <CardContent className="space-y-4">
+                  <div data-slot="card-content" className="px-(--card...">
+                    <GoogleButton>
+                    <div>
+                    <form id="auth-primary" onSubmit={function} className="space-y-4" noValidate={true} tabIndex={-1}>
+                      <Field label="Email" type="email" autoComplete="email" error={undefined} name="email" ...>
+                        <div className="space-y-1.5">
+                          <div>
+                          <Input id="email" name="email" aria-invalid={undefined} aria-describedby={undefined} ...>
+                            <Input type="email" data-slot="input" className="w-full min..." id="email" name="email" ...>
+                              <FieldControl ref={function ref} type="email" data-slot="input" className="w-full min..." ...>
+                                <input
+                                  id="email"
+                                  disabled={false}
+                                  name="email"
+                                  ref={function}
+                                  aria-labelledby={undefined}
+                                  autoFocus={false}
+                                  defaultValue={undefined}
+                                  onChange={function}
+                                  onFocus={function}
+                                  onBlur={function}
+                                  onKeyDown={function}
+                                  type="email"
+                                  data-slot="input"
+                                  aria-invalid={undefined}
+                                  aria-describedby={undefined}
+                                  autoComplete="email"
+                                  className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 ..."
+-                                 style={{}}
+                                >
+                      <PasswordField label="Password" autoComplete="current-pa..." error={undefined} ...>
+                        <div className="space-y-1.5">
+                          <div>
+                          <div className="relative">
+                            <Input id="password" name="password" type="password" aria-invalid={undefined} ...>
+                              <Input type="password" data-slot="input" className="w-full min..." id="password" ...>
+                                <FieldControl ref={function ref} type="password" data-slot="input" ...>
+                                  <input
+                                    id="password"
+                                    disabled={false}
+                                    name="password"
+                                    ref={function}
+                                    aria-labelledby={undefined}
+                                    autoFocus={false}
+                                    defaultValue={undefined}
+                                    onChange={function}
+                                    onFocus={function}
+                                    onBlur={function}
+                                    onKeyDown={function}
+                                    type="password"
+                                    data-slot="input"
+                                    aria-invalid={undefined}
+                                    aria-describedby={undefined}
+                                    autoComplete="current-password"
+                                    className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-..."
+-                                   style={{}}
+                                  >
+                            ...
+                      ...
+                ...
+
+[login] log: [Fast Refresh] rebuilding
+[login] log: [Fast Refresh] done in 106ms

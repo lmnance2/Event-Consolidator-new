@@ -3,6 +3,7 @@ import { Category, ExperienceType, Provider, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { haversineMeters } from "@/lib/geo/haversine";
 import { encodeCursor, decodeCursor } from "@/lib/events/cursor";
+import { pickPrimarySource } from "@/lib/events/primary-source";
 
 const METERS_PER_MILE = 1609.344;
 const DEGREES_LAT_PER_MILE = 1 / 69;
@@ -68,21 +69,6 @@ export interface FeedQueryInput {
   filters: FeedFilters;
   cursor: string | null;
   limit?: number;
-}
-
-const PROVIDER_PRIORITY: Record<Provider, number> = {
-  TICKETMASTER: 0,
-  EVENTBRITE: 1,
-  MEETUP: 2,
-};
-
-function pickPrimarySource(
-  sources: Array<{ provider: Provider; ticketUrl: string }>
-): { provider: Provider; ticketUrl: string } | null {
-  if (!sources.length) return null;
-  return [...sources].sort(
-    (a, b) => PROVIDER_PRIORITY[a.provider] - PROVIDER_PRIORITY[b.provider]
-  )[0] ?? null;
 }
 
 function timeOfDayHours(

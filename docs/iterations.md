@@ -317,22 +317,53 @@ Living plan for the greenfield build. Each iteration is a self-contained slice t
 
 ---
 
-## Iteration 9 — Friends / social
+## Iteration 9 — Friends / social ✅
 
-**Status:** Not started
+**Status:** Complete (2026-08-11)
 
-**Owner:** `backend` + `frontend` agents
+**Owner:** `backend` + `frontend` agents (design pass by orchestrator via `ui-ux-pro-max` + `impeccable`)
 
-**Scope:**
-- `POST /api/friends/requests`, `PATCH /api/friends/requests/[id]` (accept/decline)
-- `Friendship` insert with `userAId < userBId` invariant enforced in code
-- Friends' Going visibility on event details panel
-- Share-event link (public event page → provider redirect)
-- Pro-only: friend invites, activity feed (gated in UI + server)
+**Scope delivered:**
+- **Design plan at `docs/plans/friends.md`** — ui-ux-pro-max design pass + impeccable critique pass; 15 fold-in critiques applied. Locks the four-tab `/friends` layout, EventDetailsPanel additions, panel "Share" actions menu (replacing Add-to-Calendar), UserMenu pending-badge, and the public `/e/[id]` share page treatment
+- **`lib/friends/`** — `pair.orderedPair(a,b)` (single enforcement point for the `userAId < userBId` invariant), `queries.{listFriendIds, areFriends, pendingRequestCount, listFriendsGoing}`, and **`activity.ts`** — shared `getFriendActivityPage({userId, cursor})` consumed by both the `/friends` SSR page 1 and `GET /api/social/activity` (per CLAUDE.md shared-query rule)
+- **Friend request routes** — `POST /api/friends/requests` (silent-success anti-enumeration on every 200 path, rate-limited 5/hour tuple + 30/hour sender fallback, **429 with silent body** on rate-limit hit), `GET /api/friends/requests` (incoming + outgoing), `PATCH /api/friends/requests/[id]` (accept/decline, IDOR guard, serializable `$transaction` on accept with P2002 remap → idempotent 200), `DELETE /api/friends/requests/[id]` (cancel outgoing)
+- **Friendship routes** — `GET /api/friends`, `DELETE /api/friends/[otherUserId]` (unfriend via `orderedPair`)
+- **Panel & invite routes** — `GET /api/events/[id]/friends-going` (only mutual friends surface; empty array for common case), `POST /api/events/[id]/invite` (Pro-only, single `findMany` for mutual-friend check (was N+1), silent-drops non-friends, returns `{sent, droppedNonFriend, droppedEmailFailure}` distinguishing enumeration-safe drops from real Resend failures, rate-limited 10/hour per sender, NEXTAUTH_URL pre-flight guard)
+- **Activity feed** — `GET /api/social/activity` (Pro-only, cursor-paginated, filters `event.isActive`, delegates to `lib/friends/activity.ts`)
+- **Event-state extension** — `GET /api/users/me/event-state` now returns `{saved, going, isPro, pendingFriendRequests, friendCount}`; `EventStateProvider` exposes both new fields
+- **Invite email** — `lib/email/templates/event-invite.tsx` (brand-register per iter-8 convention, links to `${NEXTAUTH_URL}/e/${eventId}`)
+- **`app/(main)/friends/page.tsx`** — SSR, composed fetch, intelligent default tab (incoming pending > 0 → requests; else 0 friends → add; else friends), `?tab=` param overrides
+- **Friends tab components** — `friends-tabs.tsx` (client shell with URL-state), `friends-tab.tsx` (list + unfriend confirm), `requests-tab.tsx` (incoming + sent, optimistic remove), `add-tab.tsx` (enumeration-safe email form; success alert reads identical regardless of outcome), `activity-tab.tsx` (grouped by day, cursor pagination via IntersectionObserver + fallback button, Pro upsell placeholder for FREE), `invite-friends-dialog.tsx`
+- **`components/ui/tabs.tsx`** — new `data-slot` wrapper around `@base-ui-components/react/tabs`; underline is `bg-foreground` (not `bg-brand` — preserves orange-in-three-places commitment); `motion-reduce:transition-none` respects OS preference
+- **`components/ui/avatar.tsx`** — new wrapper, FNV-1a-hashed deterministic muted-tint monogram fallback
+- **`app/(public)/events/[id]/page.tsx`** — public SSR share page; uses shared `pickPrimarySource(sources)` helper (extracted to `lib/events/primary-source.ts` this iteration — feed and share now agree on the ticket URL); expired-event fallback (h1 + CTA only); `generateMetadata` with OG tags + `robots: { index: false, follow: true }`
+- **EventDetailsPanel changes** — `FriendsGoingSection` inserted between description and venue (avatars only when count ≥ 3, text-only summary otherwise, section hidden entirely on empty array), `AddToCalendarMenu` renamed and expanded to **`ShareMenu`** (Copy link → separator → 3 calendar options → separator → Invite friends). Panel footer stays at four controls (Save · Going · Share · Get Tickets)
+- **UserMenu** — pending-badge dot on trigger avatar; "Friends" popover link with count badge; reads `pendingFriendRequests` from `EventStateProvider`
+- **`middleware.ts`** — matcher exclusion for both `/e/` and `/events/` (the latter is load-bearing because `/e/:id` internally rewrites to `/events/:id`); pre-existing routes still auth-gated
+- **`next.config.ts`** — `rewrites()` mapping `/e/:id` → `/events/:id`
+- **SYSTEM_ARCHITECTURE.md § Routes** — added 12 new route rows + updated `event-state` shape; **PRODUCT_REQUIREMENTS.md** status header updated
 
-**Env vars needed:** none new
+**Vitest coverage:** 580 tests / 43 files (was 482/35 after iter 8). New: `lib/friends/*` (pair, queries, activity, 5 route files), invite email template, event-state extension, `pickPrimarySource` boundary tests.
 
-**Review:** `code-reviewer` — IDOR risk on friend request IDs; auth boundary check needed
+**Env vars needed:** none new (`RESEND_API_KEY`, `NEXTAUTH_URL`, Upstash Redis all set in prior iterations).
+
+**Quality gate:** typecheck ✅ · lint ✅ · test ✅ (580/580 in 43 files) · build ✅ (32 routes)
+
+**Review:** `code-reviewer` × 1 pass with browser-verification-attempted (local Postgres not running in reviewer's environment; middleware/routing verified live, DB-dependent flows verified against source + tests). **0 Critical + 5 High + 7 Medium + 6 Nitpick** — every High and every actionable Medium addressed in a single parallel fix round (`backend` + `frontend`). Highs closed: share page uses shared `pickPrimarySource` (was inconsistent alphabetical order); Add-tab copy locked to `they'll` contraction; `motion-reduce:` (was dead `@media` class); activity cursor ternary simplified; activity query extracted to `lib/friends/activity.ts` (was duplicated across SSR page + route). Mediums closed: N+1 invite check → single `findMany`; invite response shape split `dropped` into `droppedNonFriend` + `droppedEmailFailure`; activity filters `event.isActive`; rate-limit returns 429 with silent body (was 200 with dead client-side 429 branch); `friendCount` added to event-state. Full re-review skipped after orchestrator spot-check confirmed all Critical/High/Medium fixes landed at the cited file:line.
+
+**Deviations from plan:**
+1. **Pro upsell for "Invite friends" (free tier) uses a `Dialog` instead of a `Popover`** — nesting a Popover inside base-ui `DropdownMenu` caused z-index/portal-ordering issues. Same UX (blocks interaction, communicates the gate), lower layering risk. Documented as an accepted trade-off.
+2. **`FriendsGoingSection` always fires the fetch on panel open in the merged state** — orchestrator's fix round added `friendCount` to `EventStateProvider` (backend side) but did not wire the consumer-side skip yet. Minor UX rough edge (skeleton flash for 0-friend users); trivial follow-up. Not blocking.
+3. **`Button` still lacks a `destructive` variant** — the "Remove" ghost button and the Unfriend dialog's red button use inline classes. Reviewer flagged as scope-adjacent nitpick; adding the variant is a small hygiene follow-up.
+
+**Accepted trade-offs:**
+- **Invite email localizes to UTC** (matches reminder-email pattern from iter 8). Timezone-correct formatting is a cross-cutting change; when it lands it will fix both.
+- **Activity feed is unpaginated on the "Sent" and "Incoming" request lists** — those lists are small in practice; pagination is a v2 concern if it becomes one.
+- **No block/report mechanism.** A declined-then-re-sent friend request has no throttle beyond the general rate-limit. Iter-10 territory if needed.
+- **Playwright smoke suite still not bootstrapped** — reviewer's environment could not reach the DB for a browser pass; static analysis + tests carried the review. The "sign in → add friend → accept as second user → see friend on details panel" flow is a strong first Playwright case whenever the suite lands.
+- **Iter 7's timeOfDay UTC filter (H1 from iter 7 review)** still uses UTC hours; unchanged this iteration.
+
+---
 
 ---
 

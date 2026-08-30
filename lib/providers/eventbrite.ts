@@ -1,27 +1,30 @@
 import "server-only";
 import { assertHttpsUrl } from "./url";
-// Actor: automation-lab/eventbrite-scraper
-// Replaces direct Eventbrite REST calls — /v3/events/search/ was retired Dec 2019.
-// Input: { searchQuery, location (Eventbrite slug "state--city"), maxResults }
-// Output items include: name, description, url, start_date, end_date, is_free,
-//   category, venue { name, lat, lng, address }, ticket_info { min_price }
+// Apify Task (not a raw actor) — task holds a pre-saved input; we override
+// city/country/maxResults per-metro. Override the id via APIFY_EVENTBRITE_TASK_ID.
+// Input: { country, city, maxResults, enrichOrganizers } — country/city are
+//   full-name lowercase (e.g. "united states", "new york").
+// Output flat fields include: eventbrite_event_id, name, summary, url,
+//   image_url, start_datetime, end_date, end_time, timezone, latitude/longitude
+//   (strings), venue_address, is_online_event, status, tags[].
 import type { Category } from "@prisma/client";
 import type { NormalizedEventInput, ProviderAdapter } from "./types";
+import { parseLocalDateTime as parseLocalDateTimeShared } from "./timezone";
 
-const ACTOR_ID =
-  process.env.APIFY_EVENTBRITE_ACTOR_ID ?? "automation-lab/eventbrite-scraper";
+const TASK_ID =
+  process.env.APIFY_EVENTBRITE_TASK_ID ?? "u1GK6rfogRmTlU5rK";
 
-const METROS: ReadonlyArray<{ name: string; location: string }> = [
-  { name: "NYC", location: "ny--new-york" },
-  { name: "LA", location: "ca--los-angeles" },
-  { name: "Chicago", location: "il--chicago" },
-  { name: "SF", location: "ca--san-francisco" },
-  { name: "Austin", location: "tx--austin" },
+// Actor requires hyphen-separated slug-style values (per its input schema
+// error listing: "united-states", "new-york", "los-angeles", ...).
+const METROS: ReadonlyArray<{ name: string; city: string; country: string }> = [
+  { name: "NYC", city: "new-york", country: "united-states" },
+  { name: "LA", city: "los-angeles", country: "united-states" },
+  { name: "Chicago", city: "chicago", country: "united-states" },
+  { name: "SF", city: "san-francisco", country: "united-states" },
+  { name: "Austin", city: "austin", country: "united-states" },
 ];
 
-type EbScraperCategoryName = string;
-
-const CATEGORY_NAME_MAP: Record<EbScraperCategoryName, Category> = {
+const CATEGORY_TAG_MAP: Record<string, Category> = {
   "Music": "MUSIC",
   "Business & Professional": "NETWORKING",
   "Food & Drink": "FOOD_DRINK",
@@ -44,116 +47,121 @@ const CATEGORY_NAME_MAP: Record<EbScraperCategoryName, Category> = {
   "School Activities": "EDUCATION",
 };
 
-interface EbScraperVenue {
+interface EbEvent {
+  eventbrite_event_id?: string;
   name?: string;
-  lat?: number | string;
-  lng?: number | string;
-  address?: string;
-}
-
-interface EbScraperTicketInfo {
-  min_price?: number | null;
-  is_free?: boolean;
-}
-
-interface EbScraperEvent {
-  id?: string;
-  name?: string;
-  description?: string;
+  summary?: string;
   url?: string;
+  image_url?: string;
   start_date?: string;
+  start_time?: string;
   end_date?: string;
-  is_free?: boolean;
-  category?: string;
-  image?: string;
-  venue?: EbScraperVenue | null;
-  ticket_info?: EbScraperTicketInfo | null;
+  end_time?: string;
+  timezone?: string;
+  start_datetime?: string;
+  latitude?: string | number;
+  longitude?: string | number;
+  venue_address?: string;
+  is_online_event?: boolean;
+  status?: string;
+  tags?: string[];
 }
 
-function mapCategory(categoryName: string | undefined): Category {
-  if (!categoryName) return "OTHER";
-  const mapped = CATEGORY_NAME_MAP[categoryName];
-  if (mapped) return mapped;
+function mapCategory(tags: string[] | undefined): Category {
+  if (!tags || tags.length === 0) return "OTHER";
+  for (const tag of tags) {
+    const mapped = CATEGORY_TAG_MAP[tag];
+    if (mapped) return mapped;
+  }
   console.warn(
     JSON.stringify({
       event: "eventbrite.unmapped_category",
-      categoryName,
+      tags,
       action: "fallback_to_OTHER",
     })
   );
   return "OTHER";
 }
 
-function normalizeEvent(raw: EbScraperEvent): NormalizedEventInput | null {
-  const venue = raw.venue;
-  if (!venue) {
+const parseLocalDateTime = (dateTimeStr: string, timezone: string) =>
+  parseLocalDateTimeShared(dateTimeStr, timezone, "eventbrite");
+
+function normalizeEvent(raw: EbEvent): NormalizedEventInput | null {
+  if (raw.is_online_event) {
     console.warn(
       JSON.stringify({
-        event: "eventbrite.skip_no_venue",
-        externalId: raw.id,
+        event: "eventbrite.skip_online",
+        externalId: raw.eventbrite_event_id,
         action: "skip",
       })
     );
     return null;
   }
 
-  const lat = typeof venue.lat === "string" ? parseFloat(venue.lat) : (venue.lat ?? NaN);
-  const lng = typeof venue.lng === "string" ? parseFloat(venue.lng) : (venue.lng ?? NaN);
+  if (raw.status && raw.status.toLowerCase() === "cancelled") {
+    console.warn(
+      JSON.stringify({
+        event: "eventbrite.skip_cancelled",
+        externalId: raw.eventbrite_event_id,
+        action: "skip",
+      })
+    );
+    return null;
+  }
+
+  const lat = typeof raw.latitude === "string" ? parseFloat(raw.latitude) : (raw.latitude ?? NaN);
+  const lng = typeof raw.longitude === "string" ? parseFloat(raw.longitude) : (raw.longitude ?? NaN);
   if (isNaN(lat) || isNaN(lng)) {
     console.warn(
       JSON.stringify({
         event: "eventbrite.skip_no_geo",
-        externalId: raw.id,
-        venueName: venue.name,
+        externalId: raw.eventbrite_event_id,
         action: "skip",
       })
     );
     return null;
   }
 
-  const startDateStr = raw.start_date;
-  if (!startDateStr) {
+  const timezone = raw.timezone ?? "UTC";
+  const startInput = raw.start_datetime
+    ?? (raw.start_date && raw.start_time ? `${raw.start_date}T${raw.start_time}` : undefined);
+  if (!startInput) {
     console.warn(
       JSON.stringify({
         event: "eventbrite.skip_no_start_time",
-        externalId: raw.id,
+        externalId: raw.eventbrite_event_id,
         action: "skip",
       })
     );
     return null;
   }
 
-  const startTime = new Date(startDateStr);
+  const startTime = parseLocalDateTime(startInput, timezone);
   if (isNaN(startTime.getTime()) || startTime <= new Date()) return null;
 
-  const endDateStr = raw.end_date;
-  const endTime = endDateStr ? new Date(endDateStr) : undefined;
-
-  const isFree = raw.is_free ?? raw.ticket_info?.is_free ?? false;
-  const minPriceCents =
-    !isFree && raw.ticket_info?.min_price != null && raw.ticket_info.min_price > 0
-      ? Math.round(raw.ticket_info.min_price * 100)
-      : undefined;
+  const endInput = raw.end_date && raw.end_time
+    ? `${raw.end_date}T${raw.end_time}`
+    : undefined;
+  const endTime = endInput ? parseLocalDateTime(endInput, timezone) : undefined;
 
   const title = (raw.name ?? "").trim().replace(/\s+/g, " ");
-  const venueName = venue.name ?? venue.address ?? "Unknown Venue";
-  const externalId = raw.id ?? raw.url ?? title;
+  const venue = raw.venue_address?.trim() || "Unknown Venue";
+  const externalId = raw.eventbrite_event_id ?? raw.url ?? title;
 
   return {
     provider: "EVENTBRITE",
     externalId,
     title,
-    description: raw.description ?? undefined,
-    imageUrl: raw.image ?? undefined,
+    description: raw.summary ?? undefined,
+    imageUrl: raw.image_url ?? undefined,
     startTime,
     endTime,
-    venue: venueName,
+    venue,
     latitude: lat,
     longitude: lng,
-    price: minPriceCents,
-    isFree,
-    category: mapCategory(raw.category),
-    ticketUrl: assertHttpsUrl(raw.url, `https://www.eventbrite.com/e/${raw.id ?? externalId}`),
+    isFree: false,
+    category: mapCategory(raw.tags),
+    ticketUrl: assertHttpsUrl(raw.url, `https://www.eventbrite.com/e/${externalId}`),
   };
 }
 
@@ -179,9 +187,11 @@ export const eventbriteAdapter: ProviderAdapter = {
     for (const metro of METROS) {
       let run: { defaultDatasetId: string; status: string };
       try {
-        run = await client.actor(ACTOR_ID).call({
-          location: metro.location,
+        run = await client.task(TASK_ID).call({
+          country: metro.country,
+          city: metro.city,
           maxResults: 200,
+          enrichOrganizers: false,
         }) as { defaultDatasetId: string; status: string };
       } catch (err) {
         console.error(
@@ -218,7 +228,7 @@ export const eventbriteAdapter: ProviderAdapter = {
           .dataset(run.defaultDatasetId)
           .listItems({ limit: CHUNK_SIZE, offset });
 
-        const items = result.items as EbScraperEvent[];
+        const items = result.items as EbEvent[];
         for (const raw of items) {
           const normalized = normalizeEvent(raw);
           if (normalized) yield normalized;
