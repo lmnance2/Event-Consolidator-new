@@ -3402,3 +3402,6 @@
  GET /api/events/cmtgbrl2o03lg05ew0v0cnqtu/friends-going 200 in 488ms
  GET /api/events/cmtgbrl3903li05ewjg2tky5f/friends-going 200 in 466ms
  GET /api/events/cmtgbrl3903li05ewjg2tky5f/friends-going 200 in 469ms
+ ✓ Compiled middleware in 3ms
+ GET /feed?dist=500 200 in 321ms
+ GET /feed?dist=500 200 in 116ms

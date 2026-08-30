@@ -94,14 +94,18 @@ async function upsertEvent(
   return { eventId: event.id, wasCreated: true };
 }
 
-export async function runSync(): Promise<SyncSummary> {
+export async function runSync(providers?: Provider[]): Promise<SyncSummary> {
   const startMs = Date.now();
 
   const providerCounts = {} as Record<Provider, ProviderSyncCounts>;
   const allNewEventIds: string[] = [];
   const allUpsertedEventIds: string[] = [];
 
-  for (const adapter of ADAPTERS) {
+  const adaptersToRun = providers && providers.length > 0
+    ? ADAPTERS.filter((a) => providers.includes(a.provider))
+    : ADAPTERS;
+
+  for (const adapter of adaptersToRun) {
     adapter.metroFailures = [];
 
     const counts: ProviderSyncCounts = {

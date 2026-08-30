@@ -1,7 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/sync/run", "schedule": "0 0 1 * *" },
+    { "path": "/api/sync/run?providers=TICKETMASTER", "schedule": "0 3 */2 * *" },
+    { "path": "/api/sync/run?providers=EVENTBRITE,MEETUP", "schedule": "0 3 */14 * *" },
+    { "path": "/api/sync/cleanup", "schedule": "0 4 * * *" },
     { "path": "/api/notifications/reminders/process", "schedule": "*/15 * * * *" }
   ]
 }
