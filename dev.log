@@ -3383,3 +3383,22 @@
 {"event":"cleanup.complete","softDeleted":28,"hardDeleted":28}
 {"event":"sync.complete","providers":{"TICKETMASTER":{"status":"ok","fetched":5444,"normalized":5444,"upserted":5444,"skipped":0,"metroFailures":["NYC","LA","Chicago","SF"]},"EVENTBRITE":{"status":"ok","fetched":224,"normalized":224,"upserted":224,"skipped":0,"metroFailures":["SF","Austin"]},"MEETUP":{"status":"all_metros_failed","fetched":0,"normalized":0,"upserted":0,"skipped":0,"metroFailures":["NYC","LA","Chicago","SF","Austin"]}},"crossProviderDeduped":0,"cleanup":{"softDeleted":28,"hardDeleted":28},"durationMs":692607}
  GET /api/sync/run 200 in 692977ms
+ GET /feed 200 in 1393ms
+ GET /favicon.ico?favicon.0b3bf435.ico 200 in 1202ms
+ GET /api/auth/session 200 in 1230ms
+ GET /api/users/me/event-state 200 in 1275ms
+ GET /api/events?lat=40.10273595229387&lng=-88.23288856904055&limit=20 200 in 1284ms
+ GET /api/auth/session 200 in 2009ms
+ GET /api/events/cmtgbs56b04la05ewnv9vzebp/friends-going 200 in 473ms
+ GET /api/events/cmtgbs56b04la05ewnv9vzebp/friends-going 200 in 493ms
+ GET /api/events/cmtgbsdqv051605ewbkiusgps/friends-going 200 in 415ms
+ GET /api/events/cmtgbsdqv051605ewbkiusgps/friends-going 200 in 507ms
+ GET /api/events/cmtgbs4p104j605ewf0dys6rh/friends-going 200 in 446ms
+ GET /api/events/cmtgbs4p104j605ewf0dys6rh/friends-going 200 in 547ms
+ GET /feed?dist=500 200 in 455ms
+ GET /api/events?dist=500&lat=40.10273595229387&lng=-88.23288856904055&limit=20 200 in 487ms
+ GET /feed?dist=500 200 in 337ms
+ GET /api/events/cmtgbrl2o03lg05ew0v0cnqtu/friends-going 200 in 492ms
+ GET /api/events/cmtgbrl2o03lg05ew0v0cnqtu/friends-going 200 in 488ms
+ GET /api/events/cmtgbrl3903li05ewjg2tky5f/friends-going 200 in 466ms
+ GET /api/events/cmtgbrl3903li05ewjg2tky5f/friends-going 200 in 469ms
