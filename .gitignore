@@ -29,6 +29,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+dev.log
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -38,6 +39,7 @@ yarn-error.log*
 /playwright-report
 /test-results
 /.playwright-mcp
+/scripts/playwright/out/
 
 # vercel
 .vercel
