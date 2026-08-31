@@ -1,0 +1,41 @@
+name: Reminders cron
+
+# GitHub Actions substitute for a sub-daily Vercel cron on the Hobby plan.
+# Pings /api/notifications/reminders/process every 15 minutes.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions):
+#   DEPLOYMENT_URL  e.g. https://event-atlas.vercel.app  (no trailing slash)
+#   CRON_SECRET     same value as the Vercel env var of the same name
+#
+# GitHub Actions schedule granularity is 5 min minimum and can drift 5-15
+# min under load — that's the tradeoff for staying free.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # allows manual trigger from the Actions tab for testing
+
+concurrency:
+  group: reminders-cron
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call reminders endpoint
+        env:
+          DEPLOYMENT_URL: ${{ secrets.DEPLOYMENT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$DEPLOYMENT_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::DEPLOYMENT_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+          response=$(curl --silent --show-error --fail-with-body \
+            --max-time 240 \
+            --write-out "\nHTTP_STATUS:%{http_code}" \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$DEPLOYMENT_URL/api/notifications/reminders/process")
+          echo "$response"
